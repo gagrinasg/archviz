@@ -1,0 +1,98 @@
+{
+  "language": "typescript",
+  "classes": [
+    {
+      "id": "Shape",
+      "kind": "interface",
+      "attributes": [],
+      "methods": [
+        "+area(): number",
+        "+perimeter(): number"
+      ]
+    },
+    {
+      "id": "Polygon",
+      "kind": "class",
+      "attributes": [
+        "#sides: Point[]"
+      ],
+      "methods": [
+        "+perimeter(): number"
+      ]
+    },
+    {
+      "id": "Circle",
+      "kind": "class",
+      "attributes": [
+        "-radius: number"
+      ],
+      "methods": [
+        "+area(): number",
+        "+perimeter(): number"
+      ]
+    },
+    {
+      "id": "Square",
+      "kind": "class",
+      "attributes": [
+        "-size: number"
+      ],
+      "methods": [
+        "+area(): number"
+      ]
+    },
+    {
+      "id": "Canvas",
+      "kind": "class",
+      "attributes": [
+        "-shapes: Shape[]"
+      ],
+      "methods": [
+        "+draw(): void"
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "from": "Circle",
+      "to": "Shape",
+      "type": "implements"
+    },
+    {
+      "from": "Polygon",
+      "to": "Shape",
+      "type": "extends"
+    },
+    {
+      "from": "Canvas",
+      "to": "Shape",
+      "type": "aggregation"
+    }
+  ],
+  "layout": {
+    "Shape": {
+      "x": 40,
+      "y": 40
+    },
+    "Square": {
+      "x": 235,
+      "y": -172
+    },
+    "Canvas": {
+      "x": 538,
+      "y": 80
+    },
+    "Polygon": {
+      "x": 40,
+      "y": 248
+    },
+    "Circle": {
+      "x": 464,
+      "y": 184
+    },
+    "Test": {
+      "x": -12,
+      "y": -109
+    }
+  }
+}

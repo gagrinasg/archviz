@@ -1,0 +1,5 @@
+node_modules/
+*.server.json
+*.feedback.json
+.env
+.env.*

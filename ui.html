@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>archviz</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --bg: #f5f6f8; --panel: #fff; --ink: #1d2330; --muted: #6b7385; --line: #d6dae2;
+    --node: #fff; --head: #eef1f7; --iface: #e7f6ef; --abstract: #fdf1e3; --enum: #f0ecfb;
+    --accent: #4f46e5; --err: #d92d20; --warn: #c27a06; --edge: #5b6477;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1116; --panel: #161a22; --ink: #e5e8ee; --muted: #949db0; --line: #2a303c;
+      --node: #1a1f28; --head: #222a37; --iface: #15302a; --abstract: #33261a; --enum: #272140;
+      --accent: #8b8cf8; --err: #f97066; --warn: #f5b83d; --edge: #8c95a8;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, -apple-system, Segoe UI, sans-serif; }
+  body { display: grid; grid-template-rows: 48px minmax(0, 1fr); }
+  header { display: flex; align-items: center; gap: 12px; padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--panel); min-width: 0; }
+  header h1 { font-size: 15px; margin: 0; white-space: nowrap; }
+  header .tag { font: 12px var(--mono); color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
+  header .spacer { flex: 1; }
+  #status { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #status.live { color: var(--accent); }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; min-height: 0; }
+  #canvasWrap { position: relative; min-width: 0; overflow: hidden; }
+  svg { width: 100%; height: 100%; display: block; touch-action: none; user-select: none; cursor: grab; }
+  svg.panning { cursor: grabbing; }
+  .toolbar { position: absolute; left: 12px; top: 12px; display: flex; gap: 6px; }
+  .hint { position: absolute; left: 12px; bottom: 10px; color: var(--muted); font-size: 12px; background: var(--bg); padding: 2px 6px; border-radius: 4px; }
+  button { font: inherit; font-size: 13px; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.danger { color: var(--err); }
+  button:disabled { opacity: .45; cursor: default; }
+  button.x { border: 0; padding: 0 4px; color: var(--muted); background: none; }
+  aside { border-left: 1px solid var(--line); background: var(--panel); overflow-y: auto; min-width: 0; }
+  section { padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  section h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; display: flex; justify-content: space-between; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+  input, select, textarea { width: 100%; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+  textarea { font: 12.5px/1.5 var(--mono); resize: vertical; min-height: 60px; }
+  .row { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { display: flex; gap: 8px; align-items: flex-start; padding: 5px 0; font-size: 13px; border-bottom: 1px dashed var(--line); }
+  li:last-child { border-bottom: 0; }
+  li > span:first-child { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  li.sent { color: var(--muted); }
+  li.bad span:first-child { color: var(--err); text-decoration: line-through; }
+  li.clickable { cursor: pointer; }
+  .sev { font: 11px var(--mono); padding: 0 6px; border-radius: 4px; color: #fff; flex: none; margin-top: 2px; }
+  .sev.error { background: var(--err); } .sev.warn { background: var(--warn); }
+  .muted { color: var(--muted); font-size: 13px; }
+  .picker { position: absolute; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px; display: grid; gap: 4px; box-shadow: 0 8px 24px rgba(0,0,0,.18); z-index: 5; }
+  .picker button { text-align: left; }
+  .picker button.suggested { border-color: var(--accent); }
+
+  /* diagram */
+  .node rect.box { fill: var(--node); stroke: var(--line); stroke-width: 1.2; }
+  .node rect.head { fill: var(--head); }
+  .node.interface rect.head { fill: var(--iface); } .node.abstract rect.head { fill: var(--abstract); } .node.enum rect.head { fill: var(--enum); }
+  .node text { fill: var(--ink); font-size: 12.5px; }
+  .node text.name { font-weight: 650; font-size: 13.5px; }
+  .node.abstract text.name { font-style: italic; }
+  .node text.stereo { fill: var(--muted); font-size: 11px; }
+  .node text.member { font-family: var(--mono); font-size: 12px; }
+  .node line { stroke: var(--line); }
+  .node { cursor: move; }
+  .node.pending rect.box { stroke: var(--accent); stroke-dasharray: 5 3; stroke-width: 1.6; }
+  .node.selected rect.box { stroke: var(--accent); stroke-width: 2.4; stroke-dasharray: none; }
+  .node.flash rect.box { animation: flash 1.2s ease-out 3; }
+  @keyframes flash { 0% { stroke: var(--accent); stroke-width: 6; } 100% { stroke-width: 1.2; } }
+  .node .handle { fill: var(--accent); opacity: 0; cursor: crosshair; transition: opacity .12s; }
+  .node:hover .handle, .node.selected .handle { opacity: .9; }
+  .badge text { fill: #fff; font-size: 10.5px; font-weight: 700; }
+  .edge path.vis { fill: none; stroke: var(--edge); stroke-width: 1.4; }
+  .edge.implements path.vis, .edge.dependency path.vis { stroke-dasharray: 6 4; }
+  .edge path.hit { fill: none; stroke: transparent; stroke-width: 12; cursor: pointer; }
+  .edge.pending path.vis { stroke: var(--accent); }
+  .edge.selected path.vis { stroke: var(--accent); stroke-width: 2.6; }
+  .edge.error path.vis { stroke: var(--err); }
+  marker path { stroke: var(--edge); stroke-width: 1.2; }
+  .m-hollow { fill: var(--node); } .m-filled { fill: var(--edge); } .m-open { fill: none; }
+  #ghost { stroke: var(--accent); stroke-width: 1.6; stroke-dasharray: 4 3; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">archviz</h1>
+  <span class="tag" id="lang"></span>
+  <span class="spacer"></span>
+  <span id="status">connecting…</span>
+</header>
+<main>
+  <div id="canvasWrap">
+    <svg id="svg" aria-label="Class diagram">
+      <defs>
+        <marker id="m-tri" viewBox="0 0 14 14" refX="13" refY="7" markerWidth="14" markerHeight="14" markerUnits="userSpaceOnUse" orient="auto"><path class="m-hollow" d="M1,1 L13,7 L1,13 Z"/></marker>
+        <marker id="m-open" viewBox="0 0 14 14" refX="13" refY="7" markerWidth="12" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto"><path class="m-open" d="M1,1 L13,7 L1,13"/></marker>
+        <marker id="m-dfill" viewBox="0 0 22 12" refX="1" refY="6" markerWidth="22" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto"><path class="m-filled" d="M1,6 L11,1 L21,6 L11,11 Z"/></marker>
+        <marker id="m-dhollow" viewBox="0 0 22 12" refX="1" refY="6" markerWidth="22" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto"><path class="m-hollow" d="M1,6 L11,1 L21,6 L11,11 Z"/></marker>
+      </defs>
+      <g id="world"></g>
+    </svg>
+    <div class="toolbar">
+      <button id="addClass">+ Class</button>
+      <button id="addIface">+ Interface</button>
+      <button id="fit">Fit</button>
+    </div>
+    <div class="hint">Drag boxes to move · drag the ● handle onto another box to relate · double-click canvas to add · Del removes selection</div>
+  </div>
+  <aside>
+    <section id="selPanel"></section>
+    <section><h2>Problems <span id="probCount"></span></h2><ul id="problems"></ul></section>
+    <section>
+      <h2>Queue <span id="queueCount"></span></h2>
+      <ul id="queue"></ul>
+      <label for="message">Message to the agent</label>
+      <textarea id="message" placeholder="e.g. Keep Repository generic; apply these and update the code."></textarea>
+      <div class="row"><button class="primary" id="send">Send to agent</button><button id="clear">Discard queue</button></div>
+    </section>
+  </aside>
+</main>
+
+<script type="module">
+import { check, applyOp, relKey, KINDS, RELATIONS } from '/rules.mjs';
+
+const $ = (id) => document.getElementById(id);
+const svg = $('svg'), world = $('world');
+const NS = 'http://www.w3.org/2000/svg';
+const CH = 7.4, LH = 17, PAD = 8;
+const VERB = { extends: 'extends', implements: 'implements', composition: 'is composed of', aggregation: 'aggregates', association: 'is associated with', dependency: 'depends on' };
+
+const S = {
+  name: '', base: null, layout: {}, view: { tx: 40, ty: 60, k: 1 },
+  ops: [], comments: [], sentOps: [], sentComments: [],
+  sel: null, flash: new Set(), D: null, bad: new Set(), violations: [],
+};
+
+// ---------- model state ----------
+function recompute() {
+  let m = S.base;
+  S.bad = new Set();
+  for (const op of [...S.sentOps, ...S.ops]) {
+    try { m = applyOp(m, op); } catch { S.bad.add(op); }
+  }
+  m.relations ||= [];
+  for (const [id, p] of Object.entries(m.layout || {})) S.layout[id] ||= p;
+  S.D = m;
+  S.violations = check(m);
+}
+
+function queueOp(op) {
+  // later setKind / setMembers on the same class replaces an unsent earlier one
+  if (op.op === 'setKind' || op.op === 'setMembers') S.ops = S.ops.filter((o) => !(o.op === op.op && o.id === op.id));
+  const before = S.D;
+  try { applyOp(before, op); } catch (e) { return setStatus(e.message); }
+  if (op.op === 'renameClass') {
+    S.layout[op.to] = S.layout[op.id];
+    if (S.sel?.id === op.id) S.sel.id = op.to;
+  }
+  S.ops.push(op);
+  update();
+}
+
+function describe(op) {
+  switch (op.op) {
+    case 'addClass': return `Add ${op.kind} ${op.id}`;
+    case 'removeClass': return `Remove ${op.id}`;
+    case 'renameClass': return `Rename ${op.id} → ${op.to}`;
+    case 'setKind': return `Make ${op.id} ${{ class: 'a concrete class', abstract: 'abstract', interface: 'an interface', enum: 'an enum' }[op.kind]}`;
+    case 'setMembers': return `Edit members of ${op.id}`;
+    case 'addRelation': return `${op.from} ${VERB[op.type]} ${op.to}`;
+    case 'removeRelation': return `Remove: ${op.from} ${VERB[op.type]} ${op.to}`;
+    case 'setRelationType': return `${op.from} → ${op.to}: ${op.type} ⇒ ${op.newType}`;
+  }
+  return op.op;
+}
+
+const targetLabel = (t) => !t ? 'Comment' : `Comment on ${t.includes('|') ? t.split('|').join(' ') : t}`;
+const isPendingClass = (c) => { const b = S.base.classes.find((x) => x.id === c.id); return !b || JSON.stringify(b) !== JSON.stringify(c); };
+const isPendingRel = (r) => !S.base.relations?.some((x) => relKey(x) === relKey(r));
+
+// ---------- geometry ----------
+function size(c) {
+  const a = c.attributes || [], m = c.methods || [];
+  const stereo = c.kind !== 'class';
+  const w = Math.max(150, ...[c.id, ...a, ...m].map((s) => s.length * CH + 2 * PAD + 8));
+  const head = stereo ? 46 : 32;
+  return { w, head, h: head + a.length * LH + PAD + m.length * LH + PAD + 2, stereo };
+}
+
+function autoLayout() {
+  const m = S.D, missing = m.classes.filter((c) => !S.layout[c.id]);
+  if (!missing.length) return;
+  const isaParents = (id) => m.relations.filter((r) => r.from === id && (r.type === 'extends' || r.type === 'implements') && m.classes.some((c) => c.id === r.to)).map((r) => r.to);
+  const memo = {};
+  const depth = (id, seen = new Set()) => {
+    if (id in memo) return memo[id];
+    if (seen.has(id)) return 0;
+    seen.add(id);
+    return (memo[id] = Math.max(0, ...isaParents(id).map((p) => 1 + depth(p, seen))));
+  };
+  const placed = m.classes.filter((c) => S.layout[c.id]);
+  const x0 = placed.length ? Math.max(...placed.map((c) => S.layout[c.id].x + size(c).w)) + 80 : 40;
+  const levels = [];
+  for (const c of missing) (levels[depth(c.id)] ||= []).push(c);
+  let y = 40;
+  for (const lvl of levels) {
+    if (!lvl) continue;
+    let x = x0;
+    for (const c of lvl) { S.layout[c.id] = { x, y }; x += size(c).w + 60; }
+    y += Math.max(...lvl.map((c) => size(c).h)) + 110;
+  }
+}
+
+function clip(b, tx, ty) {
+  const cx = b.x + b.w / 2, cy = b.y + b.h / 2, dx = tx - cx, dy = ty - cy;
+  if (!dx && !dy) return [cx, cy];
+  const s = Math.min(Math.abs(b.w / 2 / dx), Math.abs(b.h / 2 / dy));
+  return [cx + dx * s, cy + dy * s];
+}
+
+// ---------- rendering ----------
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) if (v != null && v !== false) e.setAttribute(k, v);
+  for (const k of kids) e.append(k);
+  return e;
+}
+const txt = (x, y, s, cls, anchor) => { const t = el('text', { x, y, class: cls, 'text-anchor': anchor }); t.textContent = s; return t; };
+
+const noteMark = (x, y) => el('g', { class: 'badge', transform: `translate(${x},${y})` },
+  el('circle', { r: 9, fill: 'var(--accent)' }), txt(0, 4, '✎', null, 'middle'), el('title', {}, 'Has queued comments'));
+
+function render() {
+  autoLayout();
+  const { tx, ty, k } = S.view;
+  world.setAttribute('transform', `translate(${tx},${ty}) scale(${k})`);
+  world.replaceChildren();
+  const boxes = {};
+  for (const c of S.D.classes) boxes[c.id] = { ...S.layout[c.id], ...size(c) };
+  const vBy = {};
+  for (const v of S.violations) (vBy[v.target] ||= []).push(v);
+  const commented = new Set([...S.comments, ...S.sentComments].map((c) => c.target));
+
+  const edges = el('g');
+  for (const r of S.D.relations) {
+    const a = boxes[r.from], b = boxes[r.to];
+    if (!a || !b || r.from === r.to) continue;
+    const [x1, y1] = clip(a, b.x + b.w / 2, b.y + b.h / 2);
+    const [x2, y2] = clip(b, a.x + a.w / 2, a.y + a.h / 2);
+    const key = relKey(r), d = `M${x1},${y1} L${x2},${y2}`;
+    const end = r.type === 'extends' || r.type === 'implements' ? 'url(#m-tri)' : 'url(#m-open)';
+    const start = r.type === 'composition' ? 'url(#m-dfill)' : r.type === 'aggregation' ? 'url(#m-dhollow)' : null;
+    const cls = ['edge', r.type, isPendingRel(r) && 'pending', S.sel?.rel === key && 'selected', vBy[key]?.some((v) => v.severity === 'error') && 'error'].filter(Boolean).join(' ');
+    const g = el('g', { class: cls, 'data-rel': key },
+      el('path', { class: 'vis', d, 'marker-end': end, 'marker-start': start }),
+      el('path', { class: 'hit', d }));
+    g.append(el('title', {}, `${r.from} ${VERB[r.type]} ${r.to}`));
+    if (commented.has(key)) g.append(noteMark((x1 + x2) / 2, (y1 + y2) / 2));
+    edges.append(g);
+  }
+  world.append(edges);
+
+  for (const c of S.D.classes) {
+    const b = boxes[c.id], a = c.attributes || [], m = c.methods || [];
+    const cls = ['node', c.kind, isPendingClass(c) && 'pending', S.sel?.id === c.id && 'selected', S.flash.has(c.id) && 'flash'].filter(Boolean).join(' ');
+    const g = el('g', { class: cls, transform: `translate(${b.x},${b.y})`, 'data-node': c.id });
+    g.append(el('rect', { class: 'box', width: b.w, height: b.h, rx: 6 }));
+    g.append(el('rect', { class: 'head', x: 1, y: 1, width: b.w - 2, height: b.head - 1, rx: 5 }));
+    if (b.stereo) g.append(txt(b.w / 2, 16, `«${c.kind}»`, 'stereo', 'middle'));
+    g.append(txt(b.w / 2, b.head - 11, c.id, 'name', 'middle'));
+    g.append(el('line', { x1: 0, x2: b.w, y1: b.head, y2: b.head }));
+    let y = b.head + PAD / 2;
+    for (const s of a) g.append(txt(PAD, (y += LH) - 4, s, 'member'));
+    y += PAD / 2 + 1;
+    g.append(el('line', { x1: 0, x2: b.w, y1: y, y2: y }));
+    y += PAD / 2;
+    for (const s of m) g.append(txt(PAD, (y += LH) - 4, s, 'member'));
+    g.append(el('circle', { class: 'handle', cx: b.w, cy: b.head / 2, r: 6, 'data-handle': c.id }, el('title', {}, 'Drag onto another class to add a relation')));
+    const vs = vBy[c.id];
+    if (vs) {
+      const err = vs.some((v) => v.severity === 'error');
+      const badge = el('g', { class: 'badge', transform: `translate(${b.w - 2},-2)` },
+        el('circle', { r: 9, fill: err ? 'var(--err)' : 'var(--warn)' }), txt(0, 4, String(vs.length), null, 'middle'),
+        el('title', {}, vs.map((v) => v.message).join('\n')));
+      g.append(badge);
+    }
+    if (commented.has(c.id)) g.append(noteMark(0, 0));
+    world.append(g);
+  }
+  if (drag?.mode === 'link') world.append(el('line', { id: 'ghost', x1: drag.x1, y1: drag.y1, x2: drag.x2, y2: drag.y2 }));
+}
+
+// ---------- side panel ----------
+function h(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (v != null && v !== false) e[k] = v;
+  }
+  e.append(...kids.filter((k) => k != null));
+  return e;
+}
+
+function commentBox(target) {
+  const ta = h('textarea', { placeholder: 'Comment for the agent…', id: 'commentText' });
+  return [h('label', { htmlFor: 'commentText' }, 'Comment'), ta,
+    h('div', { className: 'row' }, h('button', { onclick: () => {
+      if (!ta.value.trim()) return;
+      S.comments.push({ target, text: ta.value.trim() });
+      update();
+    } }, 'Queue comment'))];
+}
+
+function renderPanel() {
+  const p = $('selPanel');
+  const sel = S.sel;
+  const c = sel?.id && S.D.classes.find((x) => x.id === sel.id);
+  const r = sel?.rel && S.D.relations.find((x) => relKey(x) === sel.rel);
+  if (c) {
+    const attrs = h('textarea', { id: 'attrs', value: (c.attributes || []).join('\n'), rows: Math.max(3, (c.attributes || []).length + 1) });
+    const meths = h('textarea', { id: 'meths', value: (c.methods || []).join('\n'), rows: Math.max(3, (c.methods || []).length + 1) });
+    const members = () => {
+      const lines = (t) => t.value.split('\n').map((s) => s.trim()).filter(Boolean);
+      const op = { op: 'setMembers', id: c.id, attributes: lines(attrs), methods: lines(meths) };
+      if (JSON.stringify([op.attributes, op.methods]) !== JSON.stringify([c.attributes || [], c.methods || []])) queueOp(op);
+    };
+    attrs.addEventListener('change', members);
+    meths.addEventListener('change', members);
+    const rels = S.D.relations.filter((x) => x.from === c.id || x.to === c.id);
+    p.replaceChildren(
+      h('h2', {}, 'Class'),
+      h('label', { htmlFor: 'name' }, 'Name'),
+      h('input', { id: 'name', value: c.id, onchange: (e) => { const to = e.target.value.trim(); if (to && to !== c.id) queueOp({ op: 'renameClass', id: c.id, to }); } }),
+      h('label', { htmlFor: 'kind' }, 'Kind'),
+      h('select', { id: 'kind', onchange: (e) => queueOp({ op: 'setKind', id: c.id, kind: e.target.value }) },
+        ...KINDS.map((k) => h('option', { value: k, selected: k === c.kind }, k))),
+      h('label', { htmlFor: 'attrs' }, 'Attributes (one per line, e.g. -id: string)'), attrs,
+      h('label', { htmlFor: 'meths' }, 'Methods (one per line, e.g. +save(): void)'), meths,
+      rels.length ? h('label', {}, 'Relations') : null,
+      rels.length ? h('ul', {}, ...rels.map((x) => h('li', { className: 'clickable', onclick: () => select({ rel: relKey(x) }) }, h('span', {}, `${x.from} ${VERB[x.type]} ${x.to}`)))) : null,
+      ...commentBox(c.id),
+      h('div', { className: 'row' }, h('button', { className: 'danger', onclick: () => { queueOp({ op: 'removeClass', id: c.id }); select(null); } }, 'Delete class')),
+    );
+  } else if (r) {
+    p.replaceChildren(
+      h('h2', {}, 'Relation'),
+      h('p', { className: 'muted' }, `${r.from} ${VERB[r.type]} ${r.to}`),
+      h('label', { htmlFor: 'rtype' }, 'Type'),
+      h('select', { id: 'rtype', onchange: (e) => { const op = { op: 'setRelationType', ...r, newType: e.target.value }; S.sel = { rel: relKey({ ...r, type: op.newType }) }; queueOp(op); } },
+        ...RELATIONS.map((t) => h('option', { value: t, selected: t === r.type }, t))),
+      ...commentBox(relKey(r)),
+      h('div', { className: 'row' }, h('button', { className: 'danger', onclick: () => { queueOp({ op: 'removeRelation', ...r }); select(null); } }, 'Delete relation')),
+    );
+  } else {
+    p.replaceChildren(
+      h('h2', {}, 'Selection'),
+      h('p', { className: 'muted' }, 'Select a class or relation to edit it, or leave a general comment.'),
+      ...commentBox(null),
+    );
+  }
+}
+
+function renderLists() {
+  const errs = S.violations.filter((v) => v.severity === 'error').length;
+  $('probCount').textContent = S.violations.length ? `${errs} errors · ${S.violations.length - errs} warnings` : 'none';
+  $('problems').replaceChildren(...(S.violations.length ? S.violations.map((v) =>
+    h('li', { className: 'clickable', onclick: () => select(v.target.includes('|') ? { rel: v.target } : { id: v.target }) },
+      h('span', {}, v.message), h('span', { className: `sev ${v.severity}` }, v.severity))) : [h('li', { className: 'muted' }, h('span', {}, 'No best-practice violations.'))]));
+
+  const items = [
+    ...S.sentOps.map((o) => h('li', { className: 'sent' }, h('span', {}, describe(o)), h('span', {}, 'sent'))),
+    ...S.sentComments.map((c) => h('li', { className: 'sent' }, h('span', {}, `${targetLabel(c.target)}: ${c.text}`), h('span', {}, 'sent'))),
+    ...S.ops.map((o, i) => h('li', { className: S.bad.has(o) ? 'bad' : '' }, h('span', {}, describe(o)),
+      h('button', { className: 'x', title: 'Remove', onclick: () => { S.ops.splice(i, 1); update(); } }, '×'))),
+    ...S.comments.map((c, i) => h('li', {}, h('span', {}, `${targetLabel(c.target)}: ${c.text}`),
+      h('button', { className: 'x', title: 'Remove', onclick: () => { S.comments.splice(i, 1); update(); } }, '×'))),
+  ];
+  $('queue').replaceChildren(...(items.length ? items : [h('li', { className: 'muted' }, h('span', {}, 'Edits and comments you make are queued here.'))]));
+  $('queueCount').textContent = S.ops.length + S.comments.length || '';
+  $('send').disabled = !S.ops.length && !S.comments.length && !$('message').value.trim();
+}
+
+function update() {
+  // keep focus when the panel is rebuilt (e.g. blur of one textarea queues an op while tabbing to the next)
+  const focused = document.activeElement?.id;
+  recompute(); render(); renderPanel(); renderLists();
+  if (focused) document.getElementById(focused)?.focus();
+}
+function select(sel) { S.sel = sel; render(); renderPanel(); }
+function setStatus(s, live) { $('status').textContent = s; $('status').className = live ? 'live' : ''; }
+
+// ---------- pointer interaction ----------
+let drag = null;
+const toWorld = (e) => { const r = svg.getBoundingClientRect(); return [(e.clientX - r.left - S.view.tx) / S.view.k, (e.clientY - r.top - S.view.ty) / S.view.k]; };
+
+svg.addEventListener('pointerdown', (e) => {
+  closePicker();
+  const handle = e.target.closest('[data-handle]'), node = e.target.closest('[data-node]'), rel = e.target.closest('[data-rel]');
+  const [wx, wy] = toWorld(e);
+  if (handle) {
+    const id = handle.dataset.handle, p = S.layout[id], b = size(S.D.classes.find((c) => c.id === id));
+    drag = { mode: 'link', from: id, x1: p.x + b.w, y1: p.y + b.head / 2, x2: wx, y2: wy };
+  } else if (node) {
+    const id = node.dataset.node;
+    drag = { mode: 'node', id, dx: wx - S.layout[id].x, dy: wy - S.layout[id].y, moved: false };
+  } else if (rel) {
+    drag = { mode: 'none' };
+    select({ rel: rel.dataset.rel });
+  } else {
+    drag = { mode: 'pan', sx: e.clientX - S.view.tx, sy: e.clientY - S.view.ty, moved: false };
+    svg.classList.add('panning');
+  }
+  svg.setPointerCapture(e.pointerId);
+});
+
+svg.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  const [wx, wy] = toWorld(e);
+  if (drag.mode === 'node') {
+    drag.moved = true;
+    S.layout[drag.id] = { x: Math.round(wx - drag.dx), y: Math.round(wy - drag.dy) };
+    render();
+  } else if (drag.mode === 'pan') {
+    drag.moved = true;
+    S.view.tx = e.clientX - drag.sx; S.view.ty = e.clientY - drag.sy;
+    world.setAttribute('transform', `translate(${S.view.tx},${S.view.ty}) scale(${S.view.k})`);
+  } else if (drag.mode === 'link') {
+    drag.x2 = wx; drag.y2 = wy;
+    render();
+  }
+});
+
+svg.addEventListener('pointerup', (e) => {
+  const d = drag;
+  drag = null;
+  svg.classList.remove('panning');
+  if (!d) return;
+  if (d.mode === 'node') d.moved ? saveLayout() : select({ id: d.id });
+  else if (d.mode === 'pan' && !d.moved) select(null);
+  else if (d.mode === 'link') {
+    render();
+    const target = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-node]')?.dataset.node;
+    if (target && target !== d.from) openPicker(d.from, target, e.clientX, e.clientY);
+  }
+});
+
+svg.addEventListener('dblclick', (e) => {
+  if (e.target.closest('[data-node],[data-rel]')) return;
+  const [x, y] = toWorld(e);
+  addClass('class', x, y);
+});
+
+svg.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const r = svg.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
+  const k = Math.min(3, Math.max(0.2, S.view.k * Math.exp(-e.deltaY * 0.0015)));
+  S.view.tx = mx - ((mx - S.view.tx) * k) / S.view.k;
+  S.view.ty = my - ((my - S.view.ty) * k) / S.view.k;
+  S.view.k = k;
+  render();
+}, { passive: false });
+
+let layoutTimer;
+function saveLayout() {
+  clearTimeout(layoutTimer);
+  layoutTimer = setTimeout(() => fetch('/layout', { method: 'PUT', body: JSON.stringify(S.layout) }).catch(() => setStatus('could not save layout')), 300);
+}
+
+function addClass(kind, x, y) {
+  const id = prompt(`New ${kind} name`)?.trim();
+  if (!id) return;
+  if (x == null) { const r = svg.getBoundingClientRect(); [x, y] = [(r.width / 2 - S.view.tx) / S.view.k, (r.height / 3 - S.view.ty) / S.view.k]; }
+  S.layout[id] = { x: Math.round(x), y: Math.round(y) };
+  queueOp({ op: 'addClass', id, kind, x: Math.round(x), y: Math.round(y) });
+  select({ id });
+}
+
+// relation-type picker after a link drag
+let picker = null;
+function closePicker() { picker?.remove(); picker = null; }
+function openPicker(from, to, cx, cy) {
+  const kf = S.D.classes.find((c) => c.id === from).kind, kt = S.D.classes.find((c) => c.id === to).kind;
+  const suggested = kt === 'interface' && kf !== 'interface' ? 'implements' : kf === kt || (kt === 'abstract' && kf === 'class') ? 'extends' : 'association';
+  const wrap = $('canvasWrap').getBoundingClientRect();
+  picker = h('div', { className: 'picker' },
+    h('div', { className: 'muted' }, `${from} → ${to}`),
+    ...RELATIONS.map((t) => h('button', { className: t === suggested ? 'suggested' : '', onclick: () => { closePicker(); queueOp({ op: 'addRelation', from, to, type: t }); } }, `${VERB[t]}`)));
+  picker.style.left = `${Math.min(cx - wrap.left, wrap.width - 200)}px`;
+  picker.style.top = `${Math.min(cy - wrap.top, wrap.height - 260)}px`;
+  $('canvasWrap').append(picker);
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.target.closest('input,textarea,select')) return;
+  if (e.key === 'Escape') { closePicker(); select(null); }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && S.sel) {
+    if (S.sel.id) queueOp({ op: 'removeClass', id: S.sel.id });
+    else { const r = S.D.relations.find((x) => relKey(x) === S.sel.rel); if (r) queueOp({ op: 'removeRelation', ...r }); }
+    select(null);
+  }
+});
+
+$('addClass').onclick = () => addClass('class');
+$('addIface').onclick = () => addClass('interface');
+$('fit').onclick = fit;
+$('message').oninput = renderLists;
+$('clear').onclick = () => { S.ops = []; S.comments = []; update(); };
+$('send').onclick = async () => {
+  const draft = { ...S.D, layout: S.layout };
+  const payload = {
+    summary: S.ops.map(describe),
+    ops: S.ops,
+    comments: S.comments.map((c) => ({ target: c.target, text: c.text })),
+    message: $('message').value.trim(),
+    model: draft,
+    violations: S.violations,
+  };
+  const res = await fetch('/feedback', { method: 'POST', body: JSON.stringify(payload) }).catch(() => null);
+  if (!res?.ok) return setStatus('send failed: is the archviz server running?');
+  S.sentOps.push(...S.ops); S.sentComments.push(...S.comments);
+  S.ops = []; S.comments = []; $('message').value = '';
+  setStatus('Sent. Waiting for the agent to update the diagram…', true);
+  update();
+};
+
+function fit() {
+  const ids = S.D.classes.map((c) => c.id);
+  if (!ids.length) return;
+  const bs = S.D.classes.map((c) => ({ ...S.layout[c.id], ...size(c) }));
+  const x0 = Math.min(...bs.map((b) => b.x)), y0 = Math.min(...bs.map((b) => b.y));
+  const x1 = Math.max(...bs.map((b) => b.x + b.w)), y1 = Math.max(...bs.map((b) => b.y + b.h));
+  const r = svg.getBoundingClientRect();
+  const k = Math.min(1.4, (r.width - 80) / (x1 - x0), (r.height - 80) / (y1 - y0));
+  S.view = { k, tx: (r.width - (x1 - x0) * k) / 2 - x0 * k, ty: (r.height - (y1 - y0) * k) / 2 - y0 * k };
+  render();
+}
+
+// ---------- server sync ----------
+async function load(fromAgent) {
+  const { name, model } = await (await fetch('/model')).json();
+  model.relations ||= [];
+  if (fromAgent && S.base) {
+    const old = new Map(S.base.classes.map((c) => [c.id, JSON.stringify(c)]));
+    const oldRels = new Set(S.base.relations.map(relKey));
+    S.flash = new Set(model.classes.filter((c) => old.get(c.id) !== JSON.stringify(c)).map((c) => c.id));
+    for (const r of model.relations) if (!oldRels.has(relKey(r))) { S.flash.add(r.from); S.flash.add(r.to); }
+    setTimeout(() => { S.flash.clear(); render(); }, 3800);
+    S.ops = []; S.comments = []; S.sentOps = []; S.sentComments = [];
+    setStatus(`Agent updated the diagram at ${new Date().toLocaleTimeString()}`, true);
+  }
+  S.name = name; S.base = model;
+  S.layout = { ...S.layout, ...(model.layout || {}) };
+  $('title').textContent = name;
+  document.title = `${name} · archviz`;
+  $('lang').textContent = model.language || 'language-agnostic';
+  if (S.sel?.id && !model.classes.some((c) => c.id === S.sel.id)) S.sel = null;
+  update();
+}
+
+await load(false);
+fit();
+const es = new EventSource('/events');
+es.onopen = () => { if (!S.sentOps.length && !S.sentComments.length) setStatus('connected'); };
+es.onmessage = (e) => { if (e.data === 'reload') load(true); };
+es.onerror = () => setStatus('disconnected from archviz server (retrying)…');
+</script>
+</body>
+</html>

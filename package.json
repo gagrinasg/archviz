@@ -1,0 +1,14 @@
+{
+  "name": "@gagrinasg/archviz",
+  "version": "0.1.0",
+  "description": "Interactive class-architecture review loop for AI agents",
+  "type": "module",
+  "bin": { "archviz": "cli.mjs" },
+  "files": ["cli.mjs", "rules.mjs", "ui.html", "SKILL.md", "examples/shapes.json"],
+  "scripts": { "test": "node --test" },
+  "engines": { "node": ">=20" },
+  "license": "MIT",
+  "author": "Gagrinas Georgios",
+  "repository": { "type": "git", "url": "git+https://github.com/gagrinasg/archviz.git" },
+  "keywords": ["uml", "class-diagram", "architecture", "ai-agent", "claude-code", "visualization"]
+}
