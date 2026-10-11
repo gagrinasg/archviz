@@ -345,8 +345,8 @@ function renderPanel() {
         ...KINDS.map((k) => h('option', { value: k, selected: k === c.kind }, k))),
       h('label', { htmlFor: 'attrs' }, 'Attributes (one per line, e.g. -id: string)'), attrs,
       h('label', { htmlFor: 'meths' }, 'Methods (one per line, e.g. +save(): void)'), meths,
-      rels.length ? h('label', {}, 'Relations') : null,
-      rels.length ? h('ul', {}, ...rels.map((x) => h('li', { className: 'clickable', onclick: () => select({ rel: relKey(x) }) }, h('span', {}, `${x.from} ${VERB[x.type]} ${x.to}`)))) : null,
+      ...(rels.length ? [h('label', {}, 'Relations'),
+        h('ul', {}, ...rels.map((x) => h('li', { className: 'clickable', onclick: () => select({ rel: relKey(x) }) }, h('span', {}, `${x.from} ${VERB[x.type]} ${x.to}`))))] : []),
       ...commentBox(c.id),
       h('div', { className: 'row' }, h('button', { className: 'danger', onclick: () => { queueOp({ op: 'removeClass', id: c.id }); select(null); } }, 'Delete class')),
     );
