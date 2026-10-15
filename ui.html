@@ -10,6 +10,7 @@
     --bg: #f5f6f8; --panel: #fff; --ink: #1d2330; --muted: #6b7385; --line: #d6dae2;
     --node: #fff; --head: #eef1f7; --iface: #e7f6ef; --abstract: #fdf1e3; --enum: #f0ecfb;
     --accent: #4f46e5; --err: #d92d20; --warn: #c27a06; --edge: #5b6477;
+    --add: #079455; --mod: #dc6803; --del: #d92d20; --pkg: rgba(79, 70, 229, .045);
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
   @media (prefers-color-scheme: dark) {
@@ -17,8 +18,10 @@
       --bg: #0e1116; --panel: #161a22; --ink: #e5e8ee; --muted: #949db0; --line: #2a303c;
       --node: #1a1f28; --head: #222a37; --iface: #15302a; --abstract: #33261a; --enum: #272140;
       --accent: #8b8cf8; --err: #f97066; --warn: #f5b83d; --edge: #8c95a8;
+      --add: #32d583; --mod: #fdb022; --del: #f97066; --pkg: rgba(139, 140, 248, .07);
     }
   }
+  [hidden] { display: none !important; }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, -apple-system, Segoe UI, sans-serif; }
   body { display: grid; grid-template-rows: 48px minmax(0, 1fr); }
@@ -30,23 +33,36 @@
   #status.live { color: var(--accent); }
   main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; min-height: 0; }
   #canvasWrap { position: relative; min-width: 0; overflow: hidden; }
-  svg { width: 100%; height: 100%; display: block; touch-action: none; user-select: none; cursor: grab; }
-  svg.panning { cursor: grabbing; }
-  .toolbar { position: absolute; left: 12px; top: 12px; display: flex; gap: 6px; }
+  svg#svg { width: 100%; height: 100%; display: block; touch-action: none; user-select: none; cursor: grab; }
+  svg#svg.panning { cursor: grabbing; }
+  .toolbar { position: absolute; left: 12px; top: 12px; right: 12px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; pointer-events: none; }
+  .toolbar > * { pointer-events: auto; }
+  .toolbar .sep { width: 1px; height: 22px; background: var(--line); margin: 0 2px; }
+  #search { width: 190px; padding: 5px 8px; font-size: 13px; background: var(--panel); }
+  .chip { font-size: 12px; background: var(--accent); color: #fff; border-radius: 999px; padding: 3px 4px 3px 10px; display: inline-flex; gap: 2px; align-items: center; }
+  .chip button { background: none; border: 0; color: #fff; padding: 0 5px; }
   .hint { position: absolute; left: 12px; bottom: 10px; color: var(--muted); font-size: 12px; background: var(--bg); padding: 2px 6px; border-radius: 4px; }
+  .legend { position: absolute; left: 12px; bottom: 38px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 11.5px; display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: center; box-shadow: 0 4px 16px rgba(0,0,0,.08); max-width: calc(100% - 24px); }
+  .legend b { grid-column: 1 / -1; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-top: 4px; }
+  .legend .sw { width: 40px; height: 12px; border-radius: 3px; border: 1px solid var(--line); }
+  .legend .pill { font: 700 9.5px system-ui; color: #fff; border-radius: 4px; padding: 1px 5px; justify-self: start; }
   button { font: inherit; font-size: 13px; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
-  button:hover { border-color: var(--accent); }
+  button:hover:not(:disabled) { border-color: var(--accent); }
   button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.approve { background: var(--add); border-color: var(--add); color: #fff; }
   button.danger { color: var(--err); }
+  button.on { border-color: var(--accent); color: var(--accent); }
   button:disabled { opacity: .45; cursor: default; }
-  button.x { border: 0; padding: 0 4px; color: var(--muted); background: none; }
+  button.x { border: 0; padding: 0 4px; color: var(--muted); background: none; font-size: 12px; }
+  a.btnlink { font-size: 13px; color: var(--accent); }
   aside { border-left: 1px solid var(--line); background: var(--panel); overflow-y: auto; min-width: 0; }
   section { padding: 14px 16px; border-bottom: 1px solid var(--line); }
-  section h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; display: flex; justify-content: space-between; }
+  section h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
   input, select, textarea { width: 100%; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
   textarea { font: 12.5px/1.5 var(--mono); resize: vertical; min-height: 60px; }
   .row { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   ul { list-style: none; margin: 0; padding: 0; }
   li { display: flex; gap: 8px; align-items: flex-start; padding: 5px 0; font-size: 13px; border-bottom: 1px dashed var(--line); }
   li:last-child { border-bottom: 0; }
@@ -54,40 +70,74 @@
   li.sent { color: var(--muted); }
   li.bad span:first-child { color: var(--err); text-decoration: line-through; }
   li.clickable { cursor: pointer; }
+  li.clickable:hover { color: var(--accent); }
+  li.chg > span.sym { flex: none; width: 14px; font-weight: 700; }
+  li.chg.add .sym { color: var(--add); } li.chg.mod .sym { color: var(--mod); } li.chg.del .sym { color: var(--del); }
   .sev { font: 11px var(--mono); padding: 0 6px; border-radius: 4px; color: #fff; flex: none; margin-top: 2px; }
   .sev.error { background: var(--err); } .sev.warn { background: var(--warn); }
   .muted { color: var(--muted); font-size: 13px; }
+  .src { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .src code { font: 12px var(--mono); overflow-wrap: anywhere; }
+  .reply { background: var(--bg); border-left: 3px solid var(--accent); border-radius: 6px; padding: 8px 10px; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; margin-bottom: 8px; }
+  .reply time { display: block; font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+  details summary { cursor: pointer; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  #agentPanel.unread { box-shadow: inset 3px 0 0 var(--accent); }
   .picker { position: absolute; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px; display: grid; gap: 4px; box-shadow: 0 8px 24px rgba(0,0,0,.18); z-index: 5; }
   .picker button { text-align: left; }
   .picker button.suggested { border-color: var(--accent); }
+  .inline-edit { position: absolute; z-index: 6; font: 600 14px system-ui; padding: 4px 8px; border: 2px solid var(--accent); border-radius: 6px; background: var(--panel); color: var(--ink); }
+  dialog { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--ink); padding: 18px 20px; width: min(640px, 92vw); }
+  dialog::backdrop { background: rgba(0, 0, 0, .35); }
+  dialog h3 { margin: 0 0 8px; font-size: 15px; }
+  kbd { font: 11.5px var(--mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--bg); white-space: nowrap; }
+  .keys { display: grid; grid-template-columns: auto 1fr; gap: 7px 16px; font-size: 13px; align-items: center; }
 
   /* diagram */
   .node rect.box { fill: var(--node); stroke: var(--line); stroke-width: 1.2; }
   .node rect.head { fill: var(--head); }
   .node.interface rect.head { fill: var(--iface); } .node.abstract rect.head { fill: var(--abstract); } .node.enum rect.head { fill: var(--enum); }
-  .node text { fill: var(--ink); font-size: 12.5px; }
-  .node text.name { font-weight: 650; font-size: 13.5px; }
+  .node text, .pkgbox text { fill: var(--ink); font-size: 12.5px; }
+  .node text.name, .pkgbox text.name { font-weight: 650; font-size: 13.5px; }
   .node.abstract text.name { font-style: italic; }
-  .node text.stereo { fill: var(--muted); font-size: 11px; }
+  .node text.stereo, .pkgbox text.stereo { fill: var(--muted); font-size: 11px; }
   .node text.member { font-family: var(--mono); font-size: 12px; }
+  .node text.srcmark { fill: var(--accent); font: 700 10px var(--mono); }
   .node line { stroke: var(--line); }
-  .node { cursor: move; }
+  .node line.strike { stroke: var(--del); stroke-width: 1.5; }
+  .node, .pkgbox, .phead { cursor: move; }
   .node.pending rect.box { stroke: var(--accent); stroke-dasharray: 5 3; stroke-width: 1.6; }
-  .node.selected rect.box { stroke: var(--accent); stroke-width: 2.4; stroke-dasharray: none; }
-  .node.flash rect.box { animation: flash 1.2s ease-out 3; }
-  @keyframes flash { 0% { stroke: var(--accent); stroke-width: 6; } 100% { stroke-width: 1.2; } }
+  .node.chg-add rect.box { stroke: var(--add); stroke-width: 2.2; stroke-dasharray: none; }
+  .node.chg-mod rect.box { stroke: var(--mod); stroke-width: 2.2; stroke-dasharray: none; }
+  .node.match rect.box { stroke: var(--accent); stroke-width: 2.4; }
+  .node.selected rect.box { stroke: var(--accent); stroke-width: 2.6; stroke-dasharray: none; }
+  .node.ghost { opacity: .5; pointer-events: none; }
+  .node.ghost rect.box { stroke: var(--del); stroke-dasharray: 5 4; }
   .node .handle { fill: var(--accent); opacity: 0; cursor: crosshair; transition: opacity .12s; }
   .node:hover .handle, .node.selected .handle { opacity: .9; }
-  .badge text { fill: #fff; font-size: 10.5px; font-weight: 700; }
+  .dim { opacity: .14; transition: opacity .15s; }
+  .badge text, .tag text { fill: #fff; font-size: 10.5px; font-weight: 700; }
+  .tag text { font-size: 9.5px; letter-spacing: .03em; }
+  .frame rect.body { fill: var(--pkg); stroke: var(--line); stroke-dasharray: 6 4; pointer-events: none; }
+  .frame .phead rect { fill: var(--head); stroke: var(--line); }
+  .frame text.pname { fill: var(--muted); font-size: 12px; font-weight: 650; }
+  .pkgbox rect.box { fill: var(--node); stroke: var(--edge); stroke-width: 1.4; }
+  .pkgbox rect.tab { fill: var(--head); stroke: var(--edge); stroke-width: 1.4; }
   .edge path.vis { fill: none; stroke: var(--edge); stroke-width: 1.4; }
   .edge.implements path.vis, .edge.dependency path.vis { stroke-dasharray: 6 4; }
   .edge path.hit { fill: none; stroke: transparent; stroke-width: 12; cursor: pointer; }
   .edge.pending path.vis { stroke: var(--accent); }
+  .edge.chg-add path.vis { stroke: var(--add); stroke-width: 2.2; }
+  .edge.chg-mod path.vis { stroke: var(--mod); stroke-width: 2.2; }
+  .edge.ghost { opacity: .55; pointer-events: none; }
+  .edge.ghost path.vis { stroke: var(--del); stroke-dasharray: 3 4; }
   .edge.selected path.vis { stroke: var(--accent); stroke-width: 2.6; }
   .edge.error path.vis { stroke: var(--err); }
+  .edge text.elabel, .edge text.mult { fill: var(--muted); font-size: 11.5px; paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; }
+  .edge text.mult { font-family: var(--mono); font-size: 11px; }
   marker path { stroke: var(--edge); stroke-width: 1.2; }
   .m-hollow { fill: var(--node); } .m-filled { fill: var(--edge); } .m-open { fill: none; }
-  #ghost { stroke: var(--accent); stroke-width: 1.6; stroke-dasharray: 4 3; }
+  #ghostLink { stroke: var(--accent); stroke-width: 1.6; stroke-dasharray: 4 3; }
+  #marquee { fill: var(--pkg); stroke: var(--accent); stroke-dasharray: 4 3; }
 </style>
 </head>
 <body>
@@ -109,13 +159,26 @@
       <g id="world"></g>
     </svg>
     <div class="toolbar">
-      <button id="addClass">+ Class</button>
-      <button id="addIface">+ Interface</button>
-      <button id="fit">Fit</button>
+      <button id="addClass" title="New class (N)">+ Class</button>
+      <button id="addIface" title="New interface (I)">+ Interface</button>
+      <span class="sep"></span>
+      <button id="undo" title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
+      <button id="redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo">↷</button>
+      <span class="sep"></span>
+      <button id="tidy" title="Re-arrange everything: parents above children (undoable)">Tidy up</button>
+      <button id="fit" title="Fit to screen (F)">Fit</button>
+      <button id="exportBtn" title="Mermaid, SVG or PNG">Export ▾</button>
+      <button id="legendBtn" title="What the arrows and colors mean">Legend</button>
+      <span class="sep"></span>
+      <input id="search" placeholder="Search classes  /" autocomplete="off" aria-label="Search classes">
+      <span id="focusChip"></span>
     </div>
-    <div class="hint">Drag boxes to move · drag the ● handle onto another box to relate · double-click canvas to add · Del removes selection</div>
+    <div class="legend" id="legend" hidden></div>
+    <div class="hint">Press <kbd>?</kbd> for shortcuts · <kbd>Shift</kbd>-drag to select several · double-click a class to focus it</div>
   </div>
   <aside>
+    <section id="agentPanel" hidden></section>
+    <section id="chgPanel" hidden></section>
     <section id="selPanel"></section>
     <section><h2>Problems <span id="probCount"></span></h2><ul id="problems"></ul></section>
     <section>
@@ -123,27 +186,76 @@
       <ul id="queue"></ul>
       <label for="message">Message to the agent</label>
       <textarea id="message" placeholder="e.g. Keep Repository generic; apply these and update the code."></textarea>
-      <div class="row"><button class="primary" id="send">Send to agent</button><button id="clear">Discard queue</button></div>
+      <div class="row">
+        <button class="primary" id="send" title="Send queued edits and comments (Ctrl+Enter)">Send feedback</button>
+        <button class="approve" id="approve" title="Accept the design so the agent can implement it">Approve</button>
+        <button id="clear">Discard</button>
+      </div>
     </section>
   </aside>
 </main>
 
+<dialog id="keysDlg">
+  <h3>Keyboard shortcuts</h3>
+  <div class="keys">
+    <kbd>N</kbd><span>New class (at the mouse)</span>
+    <kbd>I</kbd><span>New interface</span>
+    <kbd>Del</kbd><span>Delete the selection</span>
+    <kbd>Ctrl Z</kbd><span>Undo · <kbd>Ctrl Shift Z</kbd> / <kbd>Ctrl Y</kbd> redo</span>
+    <kbd>/</kbd><span>Search classes and members · <kbd>Enter</kbd> jumps to the first match</span>
+    <kbd>F</kbd><span>Fit diagram to screen</span>
+    <kbd>Esc</kbd><span>Clear selection, focus and search</span>
+    <kbd>Ctrl Enter</kbd><span>Send feedback (in the message box)</span>
+    <span>Double-click</span><span>class name: rename · class body: focus on it and its neighbours · canvas: new class</span>
+    <span>Shift</span><span>click to add to the selection · drag on the canvas to box-select</span>
+  </div>
+  <div class="row"><button id="keysClose">Close</button></div>
+</dialog>
+
+<dialog id="mmdDlg">
+  <h3>Mermaid class diagram</h3>
+  <p class="muted">Paste it into a <code>```mermaid</code> block in Markdown. GitHub and GitLab render it in READMEs, issues and PRs.</p>
+  <textarea id="mmdText" rows="16" readonly></textarea>
+  <div class="row"><button class="primary" id="mmdCopy">Copy</button><button id="mmdClose">Close</button></div>
+</dialog>
+
 <script type="module">
-import { check, applyOp, relKey, KINDS, RELATIONS } from '/rules.mjs';
+import { check, applyOp, relKey, toMermaid, KINDS, RELATIONS } from '/rules.mjs';
 
 const $ = (id) => document.getElementById(id);
 const svg = $('svg'), world = $('world');
 const NS = 'http://www.w3.org/2000/svg';
 const CH = 7.4, LH = 17, PAD = 8;
+const ISA = new Set(['extends', 'implements']);
 const VERB = { extends: 'extends', implements: 'implements', composition: 'is composed of', aggregation: 'aggregates', association: 'is associated with', dependency: 'depends on' };
+const MEANING = {
+  extends: 'inherits from (is a)',
+  implements: 'implements the interface',
+  composition: 'owns: the part lives and dies with it',
+  aggregation: 'has: the part can exist on its own',
+  association: 'knows about / uses',
+  dependency: 'uses temporarily (parameter, local)',
+};
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(`archviz:${k}`); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(`archviz:${k}`, JSON.stringify(v)); } catch { /* storage unavailable */ } },
+};
 
 const S = {
-  name: '', base: null, layout: {}, view: { tx: 40, ty: 60, k: 1 },
-  ops: [], comments: [], sentOps: [], sentComments: [],
-  sel: null, flash: new Set(), D: null, bad: new Set(), violations: [],
+  name: '', root: '', editor: '', base: null, D: null, layout: {}, view: { tx: 40, ty: 60, k: 1 },
+  ops: [], comments: [], sentOps: [], sentComments: [], bad: new Set(), violations: [],
+  sel: null,              // { id } | { rel } | { ids: Set }
+  changes: null,          // what the agent changed in its last update
+  replies: [], unread: false,
+  focus: null, query: '', collapsed: new Set(), pointer: null,
+  undo: [], redo: [], exporting: false,
 };
 
 // ---------- model state ----------
+const cls = (id) => S.D.classes.find((c) => c.id === id);
+const selIds = () => (S.sel?.ids ? [...S.sel.ids] : S.sel?.id ? [S.sel.id] : []);
+const isSelected = (id) => S.sel?.id === id || !!S.sel?.ids?.has(id);
+
 function recompute() {
   let m = S.base;
   S.bad = new Set();
@@ -156,16 +268,68 @@ function recompute() {
   S.violations = check(m);
 }
 
-function queueOp(op) {
-  // later setKind / setMembers on the same class replaces an unsent earlier one
-  if (op.op === 'setKind' || op.op === 'setMembers') S.ops = S.ops.filter((o) => !(o.op === op.op && o.id === op.id));
-  const before = S.D;
-  try { applyOp(before, op); } catch (e) { return setStatus(e.message); }
-  if (op.op === 'renameClass') {
-    S.layout[op.to] = S.layout[op.id];
-    if (S.sel?.id === op.id) S.sel.id = op.to;
+const DEDUPE = new Set(['setKind', 'setMembers', 'setPackage', 'setRelationProps']);
+function queueOp(op, record = true) {
+  // a later edit of the same property replaces the earlier unsent one
+  let replaced = null;
+  if (DEDUPE.has(op.op)) {
+    const i = S.ops.findIndex((o) => o.op === op.op && (op.op === 'setRelationProps' ? relKey(o) === relKey(op) : o.id === op.id));
+    if (i >= 0) { replaced = { op: S.ops[i], index: i }; S.ops.splice(i, 1); recompute(); }
   }
+  try { applyOp(S.D, op); } catch (e) {
+    if (replaced) { S.ops.splice(replaced.index, 0, replaced.op); recompute(); }
+    return setStatus(e.message);
+  }
+  if (op.op === 'renameClass') renamed(op.id, op.to);
   S.ops.push(op);
+  if (record) pushUndo({ kind: 'op', op, replaced });
+  update();
+}
+
+function renamed(from, to) {
+  if (S.layout[from]) S.layout[to] = S.layout[from];
+  if (S.sel?.id === from) S.sel = { id: to };
+  if (S.focus === from) S.focus = to;
+}
+
+function addComment(target, text) {
+  const c = { target, text };
+  S.comments.push(c);
+  pushUndo({ kind: 'comment', c });
+  update();
+}
+
+// ---------- undo / redo (unsent edits, comments and layout moves) ----------
+function pushUndo(e) { S.undo.push(e); S.redo = []; }
+function undo() {
+  const e = S.undo.pop();
+  if (!e) return;
+  if (e.kind === 'layout') { e.after = structuredClone(S.layout); S.layout = structuredClone(e.before); saveLayout(); }
+  else if (e.kind === 'comment') {
+    const i = S.comments.indexOf(e.c);
+    if (i < 0) return undo(); // already removed or sent
+    S.comments.splice(i, 1);
+  } else {
+    const i = S.ops.indexOf(e.op);
+    if (i < 0) return undo();
+    S.ops.splice(i, 1);
+    if (e.replaced) S.ops.splice(Math.min(e.replaced.index, S.ops.length), 0, e.replaced.op);
+    if (e.op.op === 'renameClass') renamed(e.op.to, e.op.id);
+  }
+  S.redo.push(e);
+  update();
+}
+function redo() {
+  const e = S.redo.pop();
+  if (!e) return;
+  if (e.kind === 'layout') { S.layout = structuredClone(e.after); saveLayout(); }
+  else if (e.kind === 'comment') S.comments.push(e.c);
+  else {
+    if (e.replaced) { const i = S.ops.indexOf(e.replaced.op); if (i >= 0) S.ops.splice(i, 1); }
+    S.ops.push(e.op);
+    if (e.op.op === 'renameClass') renamed(e.op.id, e.op.to);
+  }
+  S.undo.push(e);
   update();
 }
 
@@ -176,16 +340,52 @@ function describe(op) {
     case 'renameClass': return `Rename ${op.id} → ${op.to}`;
     case 'setKind': return `Make ${op.id} ${{ class: 'a concrete class', abstract: 'abstract', interface: 'an interface', enum: 'an enum' }[op.kind]}`;
     case 'setMembers': return `Edit members of ${op.id}`;
+    case 'setPackage': return op.package ? `Move ${op.id} to package ${op.package}` : `Take ${op.id} out of its package`;
     case 'addRelation': return `${op.from} ${VERB[op.type]} ${op.to}`;
     case 'removeRelation': return `Remove: ${op.from} ${VERB[op.type]} ${op.to}`;
     case 'setRelationType': return `${op.from} → ${op.to}: ${op.type} ⇒ ${op.newType}`;
+    case 'setRelationProps': return `Label ${op.from} → ${op.to}: ${[op.fromMult, op.label, op.toMult].filter(Boolean).join(' · ') || 'cleared'}`;
   }
   return op.op;
 }
 
-const targetLabel = (t) => !t ? 'Comment' : `Comment on ${t.includes('|') ? t.split('|').join(' ') : t}`;
+const targetLabel = (t) => (!t ? 'Comment' : `Comment on ${t.includes('|') ? t.split('|').join(' ') : t}`);
 const isPendingClass = (c) => { const b = S.base.classes.find((x) => x.id === c.id); return !b || JSON.stringify(b) !== JSON.stringify(c); };
-const isPendingRel = (r) => !S.base.relations?.some((x) => relKey(x) === relKey(r));
+const isPendingRel = (r) => { const b = S.base.relations?.find((x) => relKey(x) === relKey(r)); return !b || JSON.stringify(b) !== JSON.stringify(r); };
+
+// What the agent changed: baseline = the model the agent received (base + what we sent).
+function diff(prev, next) {
+  const P = new Map(prev.classes.map((c) => [c.id, c])), N = new Map(next.classes.map((c) => [c.id, c]));
+  const changed = new Map();
+  for (const [id, c] of N) {
+    const p = P.get(id);
+    if (p && JSON.stringify(p) !== JSON.stringify(c)) changed.set(id, describeChange(p, c));
+  }
+  const pr = new Map((prev.relations || []).map((r) => [relKey(r), r]));
+  const nr = new Map((next.relations || []).map((r) => [relKey(r), r]));
+  const out = {
+    added: new Set([...N.keys()].filter((id) => !P.has(id))),
+    changed,
+    removed: [...P.values()].filter((c) => !N.has(c.id)),
+    relAdded: new Set([...nr.keys()].filter((k) => !pr.has(k))),
+    relChanged: new Set([...nr.keys()].filter((k) => pr.has(k) && JSON.stringify(pr.get(k)) !== JSON.stringify(nr.get(k)))),
+    relRemoved: [...pr.values()].filter((r) => !nr.has(relKey(r))),
+  };
+  const n = out.added.size + changed.size + out.removed.length + out.relAdded.size + out.relChanged.size + out.relRemoved.length;
+  return n ? out : null;
+}
+function describeChange(p, c) {
+  const parts = [];
+  if (p.kind !== c.kind) parts.push(`${p.kind} → ${c.kind}`);
+  for (const f of ['attributes', 'methods']) {
+    const a = new Set(p[f] || []), b = new Set(c[f] || []);
+    const add = [...b].filter((x) => !a.has(x)).length, rem = [...a].filter((x) => !b.has(x)).length;
+    if (add || rem) parts.push(`${f} ${[add && `+${add}`, rem && `−${rem}`].filter(Boolean).join(' ')}`);
+  }
+  if ((p.package || '') !== (c.package || '')) parts.push(`package → ${c.package || 'none'}`);
+  if (p.file !== c.file || p.line !== c.line) parts.push('source link');
+  return parts.join(', ') || 'details';
+}
 
 // ---------- geometry ----------
 function size(c) {
@@ -195,28 +395,83 @@ function size(c) {
   const head = stereo ? 46 : 32;
   return { w, head, h: head + a.length * LH + PAD + m.length * LH + PAD + 2, stereo };
 }
+const box = (c) => ({ ...S.layout[c.id], ...size(c) });
+const overlaps = (a, b, m = 30) => a.x < b.x + b.w + m && b.x < a.x + a.w + m && a.y < b.y + b.h + m && b.y < a.y + a.h + m;
 
-function autoLayout() {
-  const m = S.D, missing = m.classes.filter((c) => !S.layout[c.id]);
-  if (!missing.length) return;
-  const isaParents = (id) => m.relations.filter((r) => r.from === id && (r.type === 'extends' || r.type === 'implements') && m.classes.some((c) => c.id === r.to)).map((r) => r.to);
+function isaParents(id, ids) {
+  return S.D.relations.filter((r) => r.from === id && ISA.has(r.type) && r.to !== id && ids.has(r.to)).map((r) => r.to);
+}
+function depthFn(ids) {
   const memo = {};
   const depth = (id, seen = new Set()) => {
     if (id in memo) return memo[id];
     if (seen.has(id)) return 0;
     seen.add(id);
-    return (memo[id] = Math.max(0, ...isaParents(id).map((p) => 1 + depth(p, seen))));
+    return (memo[id] = Math.max(0, ...isaParents(id, ids).map((p) => 1 + depth(p, seen))));
   };
-  const placed = m.classes.filter((c) => S.layout[c.id]);
-  const x0 = placed.length ? Math.max(...placed.map((c) => S.layout[c.id].x + size(c).w)) + 80 : 40;
+  return depth;
+}
+
+// Layered layout: parents above children. Each package is laid out as its own block, side by side,
+// so package frames never overlap other classes. Within a row, classes sit near their relatives.
+// ponytail: one barycenter pass; a real crossing-minimiser (Sugiyama/ELK) if diagrams get big
+function layered(classes) {
+  const blocks = new Map();
+  for (const c of classes) { const k = c.package || ''; if (!blocks.has(k)) blocks.set(k, []); blocks.get(k).push(c); }
+  const keys = [...blocks.keys()].sort((a, b) => (a === '' ? -1 : b === '' ? 1 : a.localeCompare(b)));
+  const centre = {};
+  let x0 = 40;
+  for (const k of keys) x0 += layeredBlock(blocks.get(k), x0, k ? 78 : 40, centre) + 110;
+}
+function layeredBlock(classes, x0, y0, centre) {
+  const ids = new Set(classes.map((c) => c.id));
+  const depth = depthFn(ids);
   const levels = [];
-  for (const c of missing) (levels[depth(c.id)] ||= []).push(c);
-  let y = 40;
-  for (const lvl of levels) {
-    if (!lvl) continue;
-    let x = x0;
-    for (const c of lvl) { S.layout[c.id] = { x, y }; x += size(c).w + 60; }
+  for (const c of classes) (levels[depth(c.id)] ||= []).push(c);
+  const bary = (c) => {
+    const xs = S.D.relations.flatMap((r) => (r.from === c.id ? [r.to] : r.to === c.id ? [r.from] : [])).filter((id) => id in centre).map((id) => centre[id]);
+    return xs.length ? xs.reduce((t, x) => t + x, 0) / xs.length : Infinity;
+  };
+  const rows = [];
+  let y = y0;
+  for (const lvl of levels.filter(Boolean)) {
+    lvl.sort((a, b) => bary(a) - bary(b));
+    let x = 0;
+    const row = lvl.map((c) => { const s = size(c), r = { c, x }; centre[c.id] = x0 + x + s.w / 2; x += s.w + 60; return r; });
+    rows.push({ row, y, width: x - 60 });
     y += Math.max(...lvl.map((c) => size(c).h)) + 110;
+  }
+  const widest = Math.max(...rows.map((r) => r.width));
+  for (const { row, y: ry, width } of rows) {
+    for (const { c, x } of row) {
+      S.layout[c.id] = { x: Math.round(x0 + x + (widest - width) / 2), y: ry };
+      centre[c.id] = S.layout[c.id].x + size(c).w / 2;
+    }
+  }
+  return widest;
+}
+
+// New classes go next to a relative (below a parent, above a child, beside anything related) in free space.
+// Classes that already have a position never move, so the user's layout stays stable.
+function autoLayout() {
+  const m = S.D;
+  const missing = m.classes.filter((c) => !S.layout[c.id]);
+  if (!missing.length) return;
+  if (missing.length === m.classes.length) return layered(m.classes);
+  const depth = depthFn(new Set(m.classes.map((c) => c.id)));
+  missing.sort((a, b) => depth(a.id) - depth(b.id));
+  for (const c of missing) {
+    const s = size(c);
+    const rels = m.relations.filter((r) => (r.from === c.id || r.to === c.id) && r.from !== r.to);
+    const anchor = (pred) => rels.filter(pred).map((r) => (r.from === c.id ? r.to : r.from)).find((id) => S.layout[id]);
+    const placed = m.classes.filter((x) => S.layout[x.id]).map(box);
+    let a, x, y;
+    if ((a = anchor((r) => r.from === c.id && ISA.has(r.type)))) { const b = box(cls(a)); [x, y] = [b.x, b.y + b.h + 90]; }
+    else if ((a = anchor((r) => r.to === c.id && ISA.has(r.type)))) { const b = box(cls(a)); [x, y] = [b.x, b.y - s.h - 90]; }
+    else if ((a = anchor(() => true))) { const b = box(cls(a)); [x, y] = [b.x + b.w + 80, b.y]; }
+    else [x, y] = [Math.max(...placed.map((b) => b.x + b.w)) + 80, 40];
+    for (let i = 0; i < 300 && placed.some((b) => overlaps({ x, y, w: s.w, h: s.h }, b)); i++) x += 40;
+    S.layout[c.id] = { x: Math.round(x), y: Math.round(y) };
   }
 }
 
@@ -227,141 +482,336 @@ function clip(b, tx, ty) {
   return [cx + dx * s, cy + dy * s];
 }
 
+// Which sides two boxes connect on: vertical when they are stacked, horizontal when side by side.
+function sideOf(a, b) {
+  const gapY = Math.max(b.y - (a.y + a.h), a.y - (b.y + b.h));
+  const gapX = Math.max(b.x - (a.x + a.w), a.x - (b.x + b.w));
+  if (gapY > 0 && gapY >= gapX) return b.y > a.y ? ['bottom', 'top'] : ['top', 'bottom'];
+  if (gapX > 0) return b.x > a.x ? ['right', 'left'] : ['left', 'right'];
+  return null;
+}
+
+// Orthogonal routing: spread attachment points along each side (ordered by where the other end is),
+// inheritance arrows into one parent share a point (UML tree style).
+// ponytail: edges can still cross unrelated boxes; obstacle-avoiding routing if that hurts
+function routeEdges(items) {
+  const slots = {};
+  for (const it of items) {
+    it.sides = sideOf(it.A, it.B);
+    if (!it.sides) continue;
+    for (const end of [0, 1]) {
+      const side = it.sides[end], other = end ? it.A : it.B;
+      const coord = side === 'top' || side === 'bottom' ? other.x + other.w / 2 : other.y + other.h / 2;
+      (slots[`${end ? it.b : it.a}|${side}`] ||= []).push({ it, end, coord, shared: end === 1 && ISA.has(it.r.type) });
+    }
+  }
+  for (const [key, list] of Object.entries(slots)) {
+    const side = key.split('|').pop();
+    const groups = [];
+    let isa = null;
+    for (const s of list) {
+      if (!s.shared) { groups.push({ members: [s], coord: s.coord }); continue; }
+      if (!isa) groups.push((isa = { members: [], coord: 0 }));
+      isa.members.push(s);
+    }
+    if (isa) isa.coord = isa.members.reduce((t, s) => t + s.coord, 0) / isa.members.length;
+    groups.sort((p, q) => p.coord - q.coord);
+    groups.forEach((g, i) => {
+      const t = (i + 1) / (groups.length + 1);
+      for (const s of g.members) {
+        const b = s.end ? s.it.B : s.it.A;
+        s.it[s.end ? 'p2' : 'p1'] = side === 'top' ? [b.x + b.w * t, b.y] : side === 'bottom' ? [b.x + b.w * t, b.y + b.h]
+          : side === 'left' ? [b.x, b.y + b.h * t] : [b.x + b.w, b.y + b.h * t];
+      }
+    });
+  }
+  for (const it of items) {
+    if (!it.sides) {
+      it.pts = [clip(it.A, it.B.x + it.B.w / 2, it.B.y + it.B.h / 2), clip(it.B, it.A.x + it.A.w / 2, it.A.y + it.A.h / 2)];
+    } else if (it.sides[0] === 'top' || it.sides[0] === 'bottom') {
+      const my = (it.p1[1] + it.p2[1]) / 2;
+      it.pts = [it.p1, [it.p1[0], my], [it.p2[0], my], it.p2];
+    } else {
+      const mx = (it.p1[0] + it.p2[0]) / 2;
+      it.pts = [it.p1, [mx, it.p1[1]], [mx, it.p2[1]], it.p2];
+    }
+    it.d = rounded(it.pts, 10);
+    const [p, q] = it.pts.length === 4 ? [it.pts[1], it.pts[2]] : [it.pts[0], it.pts[1]];
+    it.mid = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+  }
+}
+
+function rounded(pts, R) {
+  const p = pts.filter((q, i) => i === 0 || q[0] !== pts[i - 1][0] || q[1] !== pts[i - 1][1]);
+  let d = `M${p[0][0]},${p[0][1]}`;
+  for (let i = 1; i < p.length - 1; i++) {
+    const [a, b, c] = [p[i - 1], p[i], p[i + 1]];
+    const l1 = Math.hypot(b[0] - a[0], b[1] - a[1]), l2 = Math.hypot(c[0] - b[0], c[1] - b[1]);
+    const r = Math.min(R, l1 / 2, l2 / 2);
+    d += ` L${b[0] - ((b[0] - a[0]) / l1) * r},${b[1] - ((b[1] - a[1]) / l1) * r}`;
+    d += ` Q${b[0]},${b[1]} ${b[0] + ((c[0] - b[0]) / l2) * r},${b[1] + ((c[1] - b[1]) / l2) * r}`;
+  }
+  const z = p[p.length - 1];
+  return `${d} L${z[0]},${z[1]}`;
+}
+
 // ---------- rendering ----------
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElementNS(NS, tag);
   for (const [k, v] of Object.entries(attrs)) if (v != null && v !== false) e.setAttribute(k, v);
-  for (const k of kids) e.append(k);
+  for (const k of kids) if (k != null) e.append(k);
   return e;
 }
 const txt = (x, y, s, cls, anchor) => { const t = el('text', { x, y, class: cls, 'text-anchor': anchor }); t.textContent = s; return t; };
-
 const noteMark = (x, y) => el('g', { class: 'badge', transform: `translate(${x},${y})` },
   el('circle', { r: 9, fill: 'var(--accent)' }), txt(0, 4, '✎', null, 'middle'), el('title', {}, 'Has queued comments'));
+const tag = (label, color) => el('g', { class: 'tag', transform: 'translate(0,-19)' },
+  el('rect', { width: label.length * 6.6 + 12, height: 15, rx: 4, fill: color }), txt(6, 11, label));
+function multText(s, p, q = p) {
+  let dx = q[0] - p[0], dy = q[1] - p[1];
+  const l = Math.hypot(dx, dy) || 1;
+  dx /= l; dy /= l;
+  return txt(p[0] + dx * 18 - dy * 10, p[1] + dy * 18 + dx * 10 + 4, s, 'mult', 'middle');
+}
+
+function packages(boxes) {
+  const out = {};
+  for (const c of S.D.classes) if (c.package) (out[c.package] ||= { name: c.package, ids: [] }).ids.push(c.id);
+  for (const p of Object.values(out)) {
+    const bs = p.ids.map((id) => boxes[id]);
+    const x0 = Math.min(...bs.map((b) => b.x)) - 20, y0 = Math.min(...bs.map((b) => b.y)) - 38;
+    const x1 = Math.max(...bs.map((b) => b.x + b.w)) + 20, y1 = Math.max(...bs.map((b) => b.y + b.h)) + 20;
+    p.frame = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+    p.collapsed = S.collapsed.has(p.name);
+    p.box = { x: x0, y: y0, w: Math.max(170, p.name.length * CH + 60), h: 58 };
+  }
+  return out;
+}
 
 function render() {
   autoLayout();
   const { tx, ty, k } = S.view;
   world.setAttribute('transform', `translate(${tx},${ty}) scale(${k})`);
   world.replaceChildren();
+  const ex = S.exporting, ch = !ex && S.changes;
+  const byId = new Map(S.D.classes.map((c) => [c.id, c]));
   const boxes = {};
-  for (const c of S.D.classes) boxes[c.id] = { ...S.layout[c.id], ...size(c) };
+  for (const c of S.D.classes) boxes[c.id] = box(c);
+  const ghosts = ch ? S.changes.removed.filter((c) => S.layout[c.id] && !boxes[c.id]) : [];
+  for (const c of ghosts) boxes[c.id] = box(c);
+  const pkgs = packages(boxes);
+  const vid = (id) => { const p = byId.get(id)?.package; return p && pkgs[p].collapsed ? `pkg:${p}` : id; };
+  const vbox = (v) => (v.startsWith('pkg:') ? pkgs[v.slice(4)].box : boxes[v]);
   const vBy = {};
   for (const v of S.violations) (vBy[v.target] ||= []).push(v);
   const commented = new Set([...S.comments, ...S.sentComments].map((c) => c.target));
+  const near = S.focus && new Set([S.focus, ...S.D.relations.flatMap((r) => (r.from === S.focus ? [r.to] : r.to === S.focus ? [r.from] : []))]);
+  const q = S.query.trim().toLowerCase();
+  const hit = (id) => { const c = byId.get(id); return !!c && [c.id, c.package || '', ...(c.attributes || []), ...(c.methods || [])].some((s) => s.toLowerCase().includes(q)); };
+  const dimId = (id) => !ex && ((near && !near.has(id)) || (q && !hit(id)));
+  const gFrames = el('g'), gEdges = el('g'), gNodes = el('g');
 
-  const edges = el('g');
-  for (const r of S.D.relations) {
-    const a = boxes[r.from], b = boxes[r.to];
-    if (!a || !b || r.from === r.to) continue;
-    const [x1, y1] = clip(a, b.x + b.w / 2, b.y + b.h / 2);
-    const [x2, y2] = clip(b, a.x + a.w / 2, a.y + a.h / 2);
-    const key = relKey(r), d = `M${x1},${y1} L${x2},${y2}`;
-    const end = r.type === 'extends' || r.type === 'implements' ? 'url(#m-tri)' : 'url(#m-open)';
-    const start = r.type === 'composition' ? 'url(#m-dfill)' : r.type === 'aggregation' ? 'url(#m-dhollow)' : null;
-    const cls = ['edge', r.type, isPendingRel(r) && 'pending', S.sel?.rel === key && 'selected', vBy[key]?.some((v) => v.severity === 'error') && 'error'].filter(Boolean).join(' ');
-    const g = el('g', { class: cls, 'data-rel': key },
-      el('path', { class: 'vis', d, 'marker-end': end, 'marker-start': start }),
-      el('path', { class: 'hit', d }));
-    g.append(el('title', {}, `${r.from} ${VERB[r.type]} ${r.to}`));
-    if (commented.has(key)) g.append(noteMark((x1 + x2) / 2, (y1 + y2) / 2));
-    edges.append(g);
+  for (const p of Object.values(pkgs)) {
+    if (p.collapsed) continue;
+    const f = p.frame;
+    gFrames.append(el('g', { class: `frame${p.ids.every(dimId) ? ' dim' : ''}` },
+      el('rect', { class: 'body', x: f.x, y: f.y, width: f.w, height: f.h, rx: 10 }),
+      el('g', { class: 'phead', 'data-pkghead': p.name },
+        el('rect', { x: f.x, y: f.y, width: Math.max(110, p.name.length * 7.6 + 34), height: 24, rx: 8 }),
+        txt(f.x + 12, f.y + 16, `${ex ? '' : '▾ '}${p.name}`, 'pname'),
+        el('title', {}, 'Click to collapse · drag to move the whole package'))));
   }
-  world.append(edges);
 
+  const items = [], seen = new Set();
+  const addItem = (r, ghost) => {
+    const a = vid(r.from), b = vid(r.to);
+    if (a === b || !vbox(a) || !vbox(b)) return;
+    const key = `${a}|${r.type}|${b}|${ghost ? 'g' : ''}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    items.push({ r, a, b, A: vbox(a), B: vbox(b), ghost });
+  };
+  for (const r of S.D.relations) addItem(r, false);
+  if (ch) for (const r of S.changes.relRemoved) addItem(r, true);
+  routeEdges(items);
+  for (const it of items) {
+    const { r, ghost } = it, key = relKey(r);
+    const classes = ['edge', r.type, ghost && 'ghost',
+      !ex && !ghost && isPendingRel(r) && 'pending',
+      ch && !ghost && S.changes.relAdded.has(key) && 'chg-add',
+      ch && !ghost && S.changes.relChanged.has(key) && 'chg-mod',
+      !ex && S.sel?.rel === key && 'selected',
+      !ex && vBy[key]?.some((v) => v.severity === 'error') && 'error',
+      !ex && (near ? !(r.from === S.focus || r.to === S.focus) : q && !(hit(r.from) || hit(r.to))) && 'dim',
+    ].filter(Boolean).join(' ');
+    const g = el('g', { class: classes, 'data-rel': ghost ? null : key },
+      el('path', { class: 'vis', d: it.d, 'marker-end': ISA.has(r.type) ? 'url(#m-tri)' : 'url(#m-open)',
+        'marker-start': r.type === 'composition' ? 'url(#m-dfill)' : r.type === 'aggregation' ? 'url(#m-dhollow)' : null }),
+      ex || ghost ? null : el('path', { class: 'hit', d: it.d }),
+      el('title', {}, `${r.from} ${VERB[r.type]} ${r.to}${ghost ? ' (removed by the agent)' : ''}`));
+    if (r.label) g.append(txt(it.mid[0], it.mid[1] - 6, r.label, 'elabel', 'middle'));
+    if (r.fromMult) g.append(multText(r.fromMult, it.pts[0], it.pts[1]));
+    if (r.toMult) g.append(multText(r.toMult, it.pts.at(-1), it.pts.at(-2)));
+    if (!ex && commented.has(key)) g.append(noteMark(it.mid[0], it.mid[1]));
+    gEdges.append(g);
+  }
+
+  for (const p of Object.values(pkgs)) {
+    if (!p.collapsed) continue;
+    const b = p.box;
+    gNodes.append(el('g', { class: `pkgbox${p.ids.every(dimId) ? ' dim' : ''}`, transform: `translate(${b.x},${b.y})`, 'data-pkgbox': p.name },
+      el('rect', { class: 'tab', width: 56, height: 12, y: -9, rx: 3 }),
+      el('rect', { class: 'box', width: b.w, height: b.h, rx: 6 }),
+      txt(b.w / 2, 25, `${ex ? '' : '▸ '}${p.name}`, 'name', 'middle'),
+      txt(b.w / 2, 44, `${p.ids.length} classes`, 'stereo', 'middle'),
+      el('title', {}, `Package ${p.name}: ${p.ids.join(', ')}\nClick to expand · drag to move`)));
+  }
   for (const c of S.D.classes) {
-    const b = boxes[c.id], a = c.attributes || [], m = c.methods || [];
-    const cls = ['node', c.kind, isPendingClass(c) && 'pending', S.sel?.id === c.id && 'selected', S.flash.has(c.id) && 'flash'].filter(Boolean).join(' ');
-    const g = el('g', { class: cls, transform: `translate(${b.x},${b.y})`, 'data-node': c.id });
-    g.append(el('rect', { class: 'box', width: b.w, height: b.h, rx: 6 }));
-    g.append(el('rect', { class: 'head', x: 1, y: 1, width: b.w - 2, height: b.head - 1, rx: 5 }));
-    if (b.stereo) g.append(txt(b.w / 2, 16, `«${c.kind}»`, 'stereo', 'middle'));
-    g.append(txt(b.w / 2, b.head - 11, c.id, 'name', 'middle'));
-    g.append(el('line', { x1: 0, x2: b.w, y1: b.head, y2: b.head }));
-    let y = b.head + PAD / 2;
-    for (const s of a) g.append(txt(PAD, (y += LH) - 4, s, 'member'));
-    y += PAD / 2 + 1;
-    g.append(el('line', { x1: 0, x2: b.w, y1: y, y2: y }));
-    y += PAD / 2;
-    for (const s of m) g.append(txt(PAD, (y += LH) - 4, s, 'member'));
-    g.append(el('circle', { class: 'handle', cx: b.w, cy: b.head / 2, r: 6, 'data-handle': c.id }, el('title', {}, 'Drag onto another class to add a relation')));
-    const vs = vBy[c.id];
-    if (vs) {
-      const err = vs.some((v) => v.severity === 'error');
-      const badge = el('g', { class: 'badge', transform: `translate(${b.w - 2},-2)` },
-        el('circle', { r: 9, fill: err ? 'var(--err)' : 'var(--warn)' }), txt(0, 4, String(vs.length), null, 'middle'),
-        el('title', {}, vs.map((v) => v.message).join('\n')));
-      g.append(badge);
-    }
-    if (commented.has(c.id)) g.append(noteMark(0, 0));
-    world.append(g);
+    if (vid(c.id) !== c.id) continue;
+    const chg = ch && (S.changes.added.has(c.id) ? 'add' : S.changes.changed.has(c.id) ? 'mod' : null);
+    gNodes.append(nodeEl(c, boxes[c.id], { ex, chg, vs: vBy[c.id], note: commented.has(c.id), dim: dimId(c.id), match: !ex && q && hit(c.id) }));
   }
-  if (drag?.mode === 'link') world.append(el('line', { id: 'ghost', x1: drag.x1, y1: drag.y1, x2: drag.x2, y2: drag.y2 }));
+  for (const c of ghosts) gNodes.append(nodeEl(c, boxes[c.id], { ex, ghost: true }));
+
+  const overlay = el('g');
+  if (drag?.mode === 'link') overlay.append(el('line', { id: 'ghostLink', x1: drag.x1, y1: drag.y1, x2: drag.x2, y2: drag.y2 }));
+  if (drag?.mode === 'box') {
+    const r = rectOf(drag);
+    overlay.append(el('rect', { id: 'marquee', x: r.x, y: r.y, width: r.w, height: r.h }));
+  }
+  world.append(gFrames, gEdges, gNodes, overlay);
+}
+
+function nodeEl(c, b, { ex, ghost, chg, vs, note, dim, match }) {
+  const a = c.attributes || [], m = c.methods || [];
+  const classes = ['node', c.kind, ghost && 'ghost', !ex && !ghost && isPendingClass(c) && 'pending', chg && `chg-${chg}`,
+    !ex && isSelected(c.id) && 'selected', dim && 'dim', match && 'match'];
+  const g = el('g', { class: classes.filter(Boolean).join(' '), transform: `translate(${b.x},${b.y})`, 'data-node': ghost ? null : c.id });
+  g.append(el('rect', { class: 'box', width: b.w, height: b.h, rx: 6 }));
+  g.append(el('rect', { class: 'head', x: 1, y: 1, width: b.w - 2, height: b.head - 1, rx: 5 }));
+  if (b.stereo) g.append(txt(b.w / 2, 16, `«${c.kind}»`, 'stereo', 'middle'));
+  g.append(txt(b.w / 2, b.head - 11, c.id, 'name', 'middle'));
+  if (ghost) { const w = c.id.length * 8; g.append(el('line', { class: 'strike', x1: b.w / 2 - w / 2, x2: b.w / 2 + w / 2, y1: b.head - 15, y2: b.head - 15 })); }
+  g.append(el('line', { x1: 0, x2: b.w, y1: b.head, y2: b.head }));
+  let y = b.head + PAD / 2;
+  for (const s of a) g.append(txt(PAD, (y += LH) - 4, s, 'member'));
+  y += PAD / 2 + 1;
+  g.append(el('line', { x1: 0, x2: b.w, y1: y, y2: y }));
+  y += PAD / 2;
+  for (const s of m) g.append(txt(PAD, (y += LH) - 4, s, 'member'));
+  if (ex) return g;
+  if (c.file && !ghost) g.append(el('g', {}, txt(7, 14, '</>', 'srcmark'), el('title', {}, `Source: ${c.file}${c.line ? `:${c.line}` : ''}`)));
+  if (ghost) return g.append(tag('REMOVED', 'var(--del)')), g;
+  if (chg) g.append(tag(chg === 'add' ? 'NEW' : 'CHANGED', chg === 'add' ? 'var(--add)' : 'var(--mod)'));
+  g.append(el('circle', { class: 'handle', cx: b.w, cy: b.head / 2, r: 6, 'data-handle': c.id }, el('title', {}, 'Drag onto another class to add a relation')));
+  if (vs) {
+    const err = vs.some((v) => v.severity === 'error');
+    g.append(el('g', { class: 'badge', transform: `translate(${b.w - 2},-2)` },
+      el('circle', { r: 9, fill: err ? 'var(--err)' : 'var(--warn)' }), txt(0, 4, String(vs.length), null, 'middle'),
+      el('title', {}, vs.map((v) => v.message).join('\n'))));
+  }
+  if (note) g.append(noteMark(-2, b.h - 2));
+  return g;
 }
 
 // ---------- side panel ----------
+const keep = (kids) => kids.filter((k) => k != null && k !== false && k !== 0 && k !== '');
+const fill = (node, ...kids) => node.replaceChildren(...keep(kids));
 function h(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
     if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (k === 'list') e.setAttribute('list', v);
     else if (v != null && v !== false) e[k] = v;
   }
-  e.append(...kids.filter((k) => k != null));
+  e.append(...keep(kids));
   return e;
 }
 
 function commentBox(target) {
-  const ta = h('textarea', { placeholder: 'Comment for the agent…', id: 'commentText' });
+  const ta = h('textarea', { placeholder: 'Comment for the agent…', id: 'commentText', rows: 2 });
   return [h('label', { htmlFor: 'commentText' }, 'Comment'), ta,
-    h('div', { className: 'row' }, h('button', { onclick: () => {
-      if (!ta.value.trim()) return;
-      S.comments.push({ target, text: ta.value.trim() });
-      update();
-    } }, 'Queue comment'))];
+    h('div', { className: 'row' }, h('button', { onclick: () => { if (ta.value.trim()) addComment(target, ta.value.trim()); } }, 'Queue comment'))];
+}
+
+function editorLink(c) {
+  let abs = /^([A-Za-z]:)?[\\/]/.test(c.file) ? c.file : `${S.root}/${c.file}`;
+  abs = abs.replaceAll('\\', '/');
+  if (!abs.startsWith('/')) abs = `/${abs}`;
+  return S.editor.replace('{path}', encodeURI(abs)).replace('{line}', c.line || 1);
 }
 
 function renderPanel() {
   const p = $('selPanel');
-  const sel = S.sel;
-  const c = sel?.id && S.D.classes.find((x) => x.id === sel.id);
-  const r = sel?.rel && S.D.relations.find((x) => relKey(x) === sel.rel);
+  const ids = selIds();
+  const c = ids.length === 1 && cls(ids[0]);
+  const r = S.sel?.rel && S.D.relations.find((x) => relKey(x) === S.sel.rel);
+  const pkgNames = [...new Set(S.D.classes.map((x) => x.package).filter(Boolean))];
+  const pkgList = h('datalist', { id: 'pkgList' }, ...pkgNames.map((n) => h('option', { value: n })));
   if (c) {
-    const attrs = h('textarea', { id: 'attrs', value: (c.attributes || []).join('\n'), rows: Math.max(3, (c.attributes || []).length + 1) });
-    const meths = h('textarea', { id: 'meths', value: (c.methods || []).join('\n'), rows: Math.max(3, (c.methods || []).length + 1) });
+    const lines = (t) => t.value.split('\n').map((s) => s.trim()).filter(Boolean);
+    const attrs = h('textarea', { id: 'attrs', value: (c.attributes || []).join('\n'), rows: Math.max(2, (c.attributes || []).length + 1) });
+    const meths = h('textarea', { id: 'meths', value: (c.methods || []).join('\n'), rows: Math.max(2, (c.methods || []).length + 1) });
     const members = () => {
-      const lines = (t) => t.value.split('\n').map((s) => s.trim()).filter(Boolean);
       const op = { op: 'setMembers', id: c.id, attributes: lines(attrs), methods: lines(meths) };
       if (JSON.stringify([op.attributes, op.methods]) !== JSON.stringify([c.attributes || [], c.methods || []])) queueOp(op);
     };
     attrs.addEventListener('change', members);
     meths.addEventListener('change', members);
     const rels = S.D.relations.filter((x) => x.from === c.id || x.to === c.id);
-    p.replaceChildren(
+    fill(p, 
       h('h2', {}, 'Class'),
       h('label', { htmlFor: 'name' }, 'Name'),
       h('input', { id: 'name', value: c.id, onchange: (e) => { const to = e.target.value.trim(); if (to && to !== c.id) queueOp({ op: 'renameClass', id: c.id, to }); } }),
-      h('label', { htmlFor: 'kind' }, 'Kind'),
-      h('select', { id: 'kind', onchange: (e) => queueOp({ op: 'setKind', id: c.id, kind: e.target.value }) },
-        ...KINDS.map((k) => h('option', { value: k, selected: k === c.kind }, k))),
+      h('div', { className: 'two' },
+        h('div', {}, h('label', { htmlFor: 'kind' }, 'Kind'),
+          h('select', { id: 'kind', onchange: (e) => queueOp({ op: 'setKind', id: c.id, kind: e.target.value }) },
+            ...KINDS.map((k) => h('option', { value: k, selected: k === c.kind }, k)))),
+        h('div', {}, h('label', { htmlFor: 'pkg' }, 'Package'),
+          h('input', { id: 'pkg', value: c.package || '', placeholder: 'none', list: 'pkgList', onchange: (e) => queueOp({ op: 'setPackage', id: c.id, package: e.target.value.trim() }) }), pkgList)),
+      c.file && h('label', {}, 'Source'),
+      c.file && h('div', { className: 'src' }, h('code', {}, `${c.file}${c.line ? `:${c.line}` : ''}`), h('a', { className: 'btnlink', href: editorLink(c) }, 'Open in editor')),
       h('label', { htmlFor: 'attrs' }, 'Attributes (one per line, e.g. -id: string)'), attrs,
       h('label', { htmlFor: 'meths' }, 'Methods (one per line, e.g. +save(): void)'), meths,
-      ...(rels.length ? [h('label', {}, 'Relations'),
-        h('ul', {}, ...rels.map((x) => h('li', { className: 'clickable', onclick: () => select({ rel: relKey(x) }) }, h('span', {}, `${x.from} ${VERB[x.type]} ${x.to}`))))] : []),
+      rels.length && h('label', {}, 'Relations'),
+      rels.length && h('ul', {}, ...rels.map((x) => h('li', { className: 'clickable', onclick: () => select({ rel: relKey(x) }) }, h('span', {}, `${x.from} ${VERB[x.type]} ${x.to}`)))),
       ...commentBox(c.id),
-      h('div', { className: 'row' }, h('button', { className: 'danger', onclick: () => { queueOp({ op: 'removeClass', id: c.id }); select(null); } }, 'Delete class')),
+      h('div', { className: 'row' },
+        h('button', { className: S.focus === c.id ? 'on' : '', onclick: () => setFocus(S.focus === c.id ? null : c.id) }, S.focus === c.id ? 'Exit focus' : 'Focus on neighbours'),
+        h('button', { className: 'danger', onclick: deleteSelection }, 'Delete class')),
+    );
+  } else if (ids.length > 1) {
+    const pkg = h('input', { id: 'multiPkg', placeholder: 'package name', list: 'pkgList' });
+    fill(p, 
+      h('h2', {}, `${ids.length} classes selected`),
+      h('p', { className: 'muted' }, ids.join(', ')),
+      h('label', { htmlFor: 'multiPkg' }, 'Group into a package'), pkg, pkgList,
+      h('div', { className: 'row' },
+        h('button', { onclick: () => ids.forEach((id) => queueOp({ op: 'setPackage', id, package: pkg.value.trim() })) }, 'Move to package'),
+        h('button', { className: 'danger', onclick: deleteSelection }, `Delete ${ids.length} classes`)),
+      h('p', { className: 'muted' }, 'Drag any of them to move them together.'),
     );
   } else if (r) {
-    p.replaceChildren(
+    const label = h('input', { id: 'rlabel', value: r.label || '', placeholder: 'e.g. sends via' });
+    const fm = h('input', { id: 'rfm', value: r.fromMult || '', placeholder: 'e.g. 1' });
+    const tm = h('input', { id: 'rtm', value: r.toMult || '', placeholder: 'e.g. 0..*' });
+    const props = () => queueOp({ op: 'setRelationProps', from: r.from, to: r.to, type: r.type, label: label.value.trim(), fromMult: fm.value.trim(), toMult: tm.value.trim() });
+    [label, fm, tm].forEach((i) => i.addEventListener('change', props));
+    fill(p, 
       h('h2', {}, 'Relation'),
-      h('p', { className: 'muted' }, `${r.from} ${VERB[r.type]} ${r.to}`),
+      h('p', { className: 'muted' }, `${r.from} ${VERB[r.type]} ${r.to}: ${MEANING[r.type]}`),
       h('label', { htmlFor: 'rtype' }, 'Type'),
-      h('select', { id: 'rtype', onchange: (e) => { const op = { op: 'setRelationType', ...r, newType: e.target.value }; S.sel = { rel: relKey({ ...r, type: op.newType }) }; queueOp(op); } },
-        ...RELATIONS.map((t) => h('option', { value: t, selected: t === r.type }, t))),
+      h('select', { id: 'rtype', onchange: (e) => { S.sel = { rel: relKey({ ...r, type: e.target.value }) }; queueOp({ op: 'setRelationType', from: r.from, to: r.to, type: r.type, newType: e.target.value }); } },
+        ...RELATIONS.map((t) => h('option', { value: t, selected: t === r.type }, `${t}: ${MEANING[t]}`))),
+      h('label', { htmlFor: 'rlabel' }, 'Label'), label,
+      h('div', { className: 'two' },
+        h('div', {}, h('label', { htmlFor: 'rfm' }, `Multiplicity at ${r.from}`), fm),
+        h('div', {}, h('label', { htmlFor: 'rtm' }, `Multiplicity at ${r.to}`), tm)),
       ...commentBox(relKey(r)),
-      h('div', { className: 'row' }, h('button', { className: 'danger', onclick: () => { queueOp({ op: 'removeRelation', ...r }); select(null); } }, 'Delete relation')),
+      h('div', { className: 'row' }, h('button', { className: 'danger', onclick: deleteSelection }, 'Delete relation')),
     );
   } else {
-    p.replaceChildren(
+    fill(p, 
       h('h2', {}, 'Selection'),
       h('p', { className: 'muted' }, 'Select a class or relation to edit it, or leave a general comment.'),
       ...commentBox(null),
@@ -369,52 +819,187 @@ function renderPanel() {
   }
 }
 
+function renderChanges() {
+  const p = $('chgPanel'), c = S.changes;
+  p.hidden = !c;
+  if (!c) return;
+  const item = (kind, sym, text, onclick) => h('li', { className: `clickable chg ${kind}`, onclick }, h('span', { className: 'sym' }, sym), h('span', {}, text));
+  const relText = (r) => `${r.from} ${VERB[r.type]} ${r.to}`;
+  const items = [
+    ...[...c.added].map((id) => item('add', '+', `Added ${cls(id)?.kind || 'class'} ${id}`, () => { select({ id }); panTo(id); })),
+    ...[...c.changed].map(([id, what]) => item('mod', '~', `Changed ${id}: ${what}`, () => { select({ id }); panTo(id); })),
+    ...c.removed.map((x) => item('del', '−', `Removed ${x.kind} ${x.id}`, () => panTo(x.id, x))),
+    ...[...c.relAdded].map((k) => { const r = S.D.relations.find((x) => relKey(x) === k); return r && item('add', '+', relText(r), () => select({ rel: k })); }),
+    ...[...c.relChanged].map((k) => { const r = S.D.relations.find((x) => relKey(x) === k); return r && item('mod', '~', `${relText(r)} (label/multiplicity)`, () => select({ rel: k })); }),
+    ...c.relRemoved.map((r) => item('del', '−', `Removed: ${relText(r)}`, () => panTo(r.from))),
+  ];
+  fill(p, 
+    h('h2', {}, 'What the agent changed', h('button', { className: 'x', onclick: () => { S.changes = null; update(); } }, 'Mark as seen')),
+    h('ul', {}, ...items));
+}
+
+function renderAgent() {
+  const p = $('agentPanel'), rs = S.replies;
+  p.hidden = !rs.length;
+  p.classList.toggle('unread', S.unread);
+  if (!rs.length) return;
+  const bubble = (r) => h('div', { className: 'reply' }, h('time', {}, new Date(r.at).toLocaleString()), r.text);
+  const older = rs.slice(0, -1).reverse();
+  fill(p, 
+    h('h2', {}, 'Agent says', S.unread && h('button', { className: 'x', onclick: () => { S.unread = false; renderAgent(); } }, 'Mark read')),
+    bubble(rs.at(-1)),
+    older.length && h('details', {}, h('summary', {}, `${older.length} earlier ${older.length === 1 ? 'message' : 'messages'}`), ...older.map(bubble)));
+}
+
 function renderLists() {
   const errs = S.violations.filter((v) => v.severity === 'error').length;
   $('probCount').textContent = S.violations.length ? `${errs} errors · ${S.violations.length - errs} warnings` : 'none';
   $('problems').replaceChildren(...(S.violations.length ? S.violations.map((v) =>
-    h('li', { className: 'clickable', onclick: () => select(v.target.includes('|') ? { rel: v.target } : { id: v.target }) },
+    h('li', { className: 'clickable', onclick: () => { select(v.target.includes('|') ? { rel: v.target } : { id: v.target }); if (!v.target.includes('|')) panTo(v.target); } },
       h('span', {}, v.message), h('span', { className: `sev ${v.severity}` }, v.severity))) : [h('li', { className: 'muted' }, h('span', {}, 'No best-practice violations.'))]));
 
   const items = [
     ...S.sentOps.map((o) => h('li', { className: 'sent' }, h('span', {}, describe(o)), h('span', {}, 'sent'))),
     ...S.sentComments.map((c) => h('li', { className: 'sent' }, h('span', {}, `${targetLabel(c.target)}: ${c.text}`), h('span', {}, 'sent'))),
-    ...S.ops.map((o, i) => h('li', { className: S.bad.has(o) ? 'bad' : '' }, h('span', {}, describe(o)),
-      h('button', { className: 'x', title: 'Remove', onclick: () => { S.ops.splice(i, 1); update(); } }, '×'))),
+    ...S.ops.map((o, i) => h('li', { className: S.bad.has(o) ? 'bad' : '', title: S.bad.has(o) ? 'No longer applies to the current model' : '' }, h('span', {}, describe(o)),
+      h('button', { className: 'x', title: 'Remove', 'aria-label': 'Remove', onclick: () => { S.ops.splice(i, 1); update(); } }, '×'))),
     ...S.comments.map((c, i) => h('li', {}, h('span', {}, `${targetLabel(c.target)}: ${c.text}`),
-      h('button', { className: 'x', title: 'Remove', onclick: () => { S.comments.splice(i, 1); update(); } }, '×'))),
+      h('button', { className: 'x', title: 'Remove', 'aria-label': 'Remove', onclick: () => { S.comments.splice(i, 1); update(); } }, '×'))),
   ];
   $('queue').replaceChildren(...(items.length ? items : [h('li', { className: 'muted' }, h('span', {}, 'Edits and comments you make are queued here.'))]));
-  $('queueCount').textContent = S.ops.length + S.comments.length || '';
-  $('send').disabled = !S.ops.length && !S.comments.length && !$('message').value.trim();
+  const queued = S.ops.length + S.comments.length;
+  $('queueCount').textContent = queued || '';
+  $('send').disabled = !queued && !$('message').value.trim();
+  $('approve').textContent = queued ? 'Approve with changes' : 'Approve';
+  $('undo').disabled = !S.undo.length;
+  $('redo').disabled = !S.redo.length;
+}
+
+function renderFocusChip() {
+  $('focusChip').replaceChildren(...(S.focus ? [h('span', { className: 'chip' }, `Focus: ${S.focus}`,
+    h('button', { title: 'Exit focus (Esc)', 'aria-label': 'Exit focus', onclick: () => setFocus(null) }, '×'))] : []));
+}
+
+function renderLegend() {
+  const L = $('legend');
+  L.hidden = !store.get('legend', true);
+  $('legendBtn').classList.toggle('on', !L.hidden);
+  if (L.hidden) return;
+  const line = (t) => {
+    const s = el('svg', { width: 40, height: 12 }, el('g', { class: `edge ${t}` }, el('path', { class: 'vis', d: 'M3,6 L36,6',
+      'marker-end': ISA.has(t) ? 'url(#m-tri)' : 'url(#m-open)', 'marker-start': t === 'composition' ? 'url(#m-dfill)' : t === 'aggregation' ? 'url(#m-dhollow)' : null })));
+    return [s, h('span', {}, h('b', { style: 'all:unset;font-weight:600' }, t), ` ${MEANING[t]}`)];
+  };
+  const sw = (bg, text, dashed) => [h('span', { className: 'sw', style: `background:${bg};${dashed ? 'border:1.6px dashed var(--accent)' : ''}` }), h('span', {}, text)];
+  const pill = (bg, text, desc) => [h('span', { className: 'pill', style: `background:${bg}` }, text), h('span', {}, desc)];
+  fill(L,
+    h('b', {}, 'Arrows point to the parent / the thing used'), ...RELATIONS.flatMap(line),
+    h('b', {}, 'Kinds'), ...sw('var(--iface)', 'interface'), ...sw('var(--abstract)', 'abstract (name in italics)'), ...sw('var(--enum)', 'enum'),
+    (S.ops.length || S.sentOps.length || S.changes) && h('b', {}, 'Review'),
+    ...(S.ops.length || S.sentOps.length ? sw('var(--node)', 'your edit, not applied by the agent yet', true) : []),
+    ...(S.changes ? [...pill('var(--add)', 'NEW', 'added by the agent'), ...pill('var(--mod)', 'CHANGED', 'changed by the agent'), ...pill('var(--del)', 'REMOVED', 'removed by the agent')] : []));
 }
 
 function update() {
   // keep focus when the panel is rebuilt (e.g. blur of one textarea queues an op while tabbing to the next)
   const focused = document.activeElement?.id;
-  recompute(); render(); renderPanel(); renderLists();
+  recompute(); render(); renderPanel(); renderChanges(); renderLists(); renderFocusChip(); renderLegend();
   if (focused) document.getElementById(focused)?.focus();
 }
 function select(sel) { S.sel = sel; render(); renderPanel(); }
 function setStatus(s, live) { $('status').textContent = s; $('status').className = live ? 'live' : ''; }
+function setFocus(id) { S.focus = id; render(); renderPanel(); renderFocusChip(); }
+
+function deleteSelection() {
+  const ids = selIds();
+  if (ids.length) ids.forEach((id) => queueOp({ op: 'removeClass', id }));
+  else if (S.sel?.rel) { const r = S.D.relations.find((x) => relKey(x) === S.sel.rel); if (r) queueOp({ op: 'removeRelation', from: r.from, to: r.to, type: r.type }); }
+  select(null);
+}
+
+function toggleCollapse(name) {
+  S.collapsed.has(name) ? S.collapsed.delete(name) : S.collapsed.add(name);
+  store.set(`collapsed:${S.name}`, [...S.collapsed]);
+  render();
+}
+
+function panTo(id, ghost) {
+  const c = cls(id) || ghost;
+  if (!c || !S.layout[c.id]) return;
+  const b = box(c), r = svg.getBoundingClientRect(), k = S.view.k;
+  S.view.tx = r.width / 2 - (b.x + b.w / 2) * k;
+  S.view.ty = r.height / 2 - (b.y + b.h / 2) * k;
+  render();
+}
+
+// ---------- inline editing ----------
+const sx = (wx) => S.view.tx + wx * S.view.k, sy = (wy) => S.view.ty + wy * S.view.k;
+function inlineInput(x, y, w, value, placeholder, commit) {
+  document.querySelector('.inline-edit')?.remove();
+  const inp = h('input', { className: 'inline-edit', value, placeholder });
+  Object.assign(inp.style, { left: `${x}px`, top: `${y}px`, width: `${w}px` });
+  let done = false;
+  const finish = (ok) => { if (done) return; done = true; inp.remove(); if (ok && inp.value.trim()) commit(inp.value.trim()); };
+  inp.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') finish(true); if (e.key === 'Escape') finish(false); });
+  inp.addEventListener('blur', () => finish(true));
+  $('canvasWrap').append(inp);
+  inp.focus();
+  inp.select();
+}
+
+function newClass(kind, wx, wy) {
+  if (wx == null) {
+    if (S.pointer) [wx, wy] = S.pointer;
+    else { const r = svg.getBoundingClientRect(); [wx, wy] = [(r.width / 2 - S.view.tx) / S.view.k, (r.height / 3 - S.view.ty) / S.view.k]; }
+  }
+  inlineInput(sx(wx), sy(wy), 230, '', `New ${kind} name, then Enter`, (id) => {
+    if (S.D.classes.some((c) => c.id === id)) return setStatus(`"${id}" already exists`);
+    const [x, y] = [Math.round(wx), Math.round(wy)];
+    S.layout[id] = { x, y };
+    queueOp({ op: 'addClass', id, kind, x, y });
+    select({ id });
+  });
+}
+
+function renameInline(id) {
+  const b = box(cls(id));
+  inlineInput(sx(b.x), sy(b.y + b.head / 2) - 16, Math.max(170, b.w * S.view.k), id, '', (to) => { if (to !== id) queueOp({ op: 'renameClass', id, to }); });
+}
 
 // ---------- pointer interaction ----------
 let drag = null;
 const toWorld = (e) => { const r = svg.getBoundingClientRect(); return [(e.clientX - r.left - S.view.tx) / S.view.k, (e.clientY - r.top - S.view.ty) / S.view.k]; };
+const rectOf = (d) => ({ x: Math.min(d.x0, d.x1), y: Math.min(d.y0, d.y1), w: Math.abs(d.x1 - d.x0), h: Math.abs(d.y1 - d.y0) });
+const moveDrag = (ids, wx, wy, extra) => ({ mode: 'move', ids, wx, wy, moved: false, before: structuredClone(S.layout),
+  start: Object.fromEntries(ids.map((id) => [id, { ...S.layout[id] }])), ...extra });
+
+function toggleSel(id) {
+  const ids = new Set(selIds());
+  ids.has(id) ? ids.delete(id) : ids.add(id);
+  select(ids.size === 0 ? null : ids.size === 1 ? { id: [...ids][0] } : { ids });
+}
 
 svg.addEventListener('pointerdown', (e) => {
-  closePicker();
-  const handle = e.target.closest('[data-handle]'), node = e.target.closest('[data-node]'), rel = e.target.closest('[data-rel]');
+  if (e.button !== 0) return;
+  closeMenus();
+  const t = e.target;
+  const handle = t.closest('[data-handle]'), node = t.closest('[data-node]'), rel = t.closest('[data-rel]');
+  const pkg = t.closest('[data-pkghead]')?.dataset.pkghead || t.closest('[data-pkgbox]')?.dataset.pkgbox;
   const [wx, wy] = toWorld(e);
   if (handle) {
-    const id = handle.dataset.handle, p = S.layout[id], b = size(S.D.classes.find((c) => c.id === id));
-    drag = { mode: 'link', from: id, x1: p.x + b.w, y1: p.y + b.head / 2, x2: wx, y2: wy };
+    const id = handle.dataset.handle, b = box(cls(id));
+    drag = { mode: 'link', from: id, x1: b.x + b.w, y1: b.y + b.head / 2, x2: wx, y2: wy };
   } else if (node) {
     const id = node.dataset.node;
-    drag = { mode: 'node', id, dx: wx - S.layout[id].x, dy: wy - S.layout[id].y, moved: false };
+    if (e.shiftKey) { toggleSel(id); drag = { mode: 'none' }; }
+    else drag = moveDrag(S.sel?.ids?.has(id) ? selIds() : [id], wx, wy, { clickId: id, onName: !!t.closest('text.name') });
+  } else if (pkg) {
+    drag = moveDrag(S.D.classes.filter((c) => c.package === pkg).map((c) => c.id), wx, wy, { pkg });
   } else if (rel) {
     drag = { mode: 'none' };
     select({ rel: rel.dataset.rel });
+  } else if (e.shiftKey) {
+    drag = { mode: 'box', x0: wx, y0: wy, x1: wx, y1: wy };
   } else {
     drag = { mode: 'pan', sx: e.clientX - S.view.tx, sy: e.clientY - S.view.ty, moved: false };
     svg.classList.add('panning');
@@ -423,46 +1008,66 @@ svg.addEventListener('pointerdown', (e) => {
 });
 
 svg.addEventListener('pointermove', (e) => {
-  if (!drag) return;
   const [wx, wy] = toWorld(e);
-  if (drag.mode === 'node') {
+  S.pointer = [wx, wy];
+  if (!drag) return;
+  if (drag.mode === 'move') {
+    const dx = wx - drag.wx, dy = wy - drag.wy;
+    if (!drag.moved && Math.hypot(dx, dy) * S.view.k < 3) return;
     drag.moved = true;
-    S.layout[drag.id] = { x: Math.round(wx - drag.dx), y: Math.round(wy - drag.dy) };
+    for (const id of drag.ids) S.layout[id] = { x: Math.round(drag.start[id].x + dx), y: Math.round(drag.start[id].y + dy) };
     render();
   } else if (drag.mode === 'pan') {
     drag.moved = true;
     S.view.tx = e.clientX - drag.sx; S.view.ty = e.clientY - drag.sy;
     world.setAttribute('transform', `translate(${S.view.tx},${S.view.ty}) scale(${S.view.k})`);
-  } else if (drag.mode === 'link') {
-    drag.x2 = wx; drag.y2 = wy;
+  } else if (drag.mode === 'link' || drag.mode === 'box') {
+    if (drag.mode === 'link') [drag.x2, drag.y2] = [wx, wy];
+    else [drag.x1, drag.y1] = [wx, wy];
     render();
   }
 });
+svg.addEventListener('pointerleave', () => { if (!drag) S.pointer = null; });
 
 svg.addEventListener('pointerup', (e) => {
   const d = drag;
   drag = null;
   svg.classList.remove('panning');
   if (!d) return;
-  if (d.mode === 'node') d.moved ? saveLayout() : select({ id: d.id });
-  else if (d.mode === 'pan' && !d.moved) select(null);
-  else if (d.mode === 'link') {
+  if (d.mode === 'move') {
+    if (d.moved) { pushUndo({ kind: 'layout', before: d.before }); saveLayout(); renderLists(); }
+    else if (d.pkg) toggleCollapse(d.pkg);
+    else if (lastClick?.id === d.clickId && e.timeStamp - lastClick.t < 400) { lastClick = null; nodeDoubleClick(d.clickId, d.onName); }
+    else { lastClick = { id: d.clickId, t: e.timeStamp }; select({ id: d.clickId }); }
+  } else if (d.mode === 'pan' && !d.moved) select(null);
+  else if (d.mode === 'box') {
+    const r = rectOf(d);
+    const ids = S.D.classes.filter((c) => !(c.package && S.collapsed.has(c.package)) && overlaps(box(c), r, 0)).map((c) => c.id);
+    select(ids.length === 0 ? null : ids.length === 1 ? { id: ids[0] } : { ids: new Set(ids) });
+  } else if (d.mode === 'link') {
     render();
     const target = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-node]')?.dataset.node;
     if (target && target !== d.from) openPicker(d.from, target, e.clientX, e.clientY);
   }
 });
 
+// Double-clicks on classes are detected in pointerup: the first click re-renders the node, which breaks native dblclick.
+let lastClick = null;
+function nodeDoubleClick(id, onName) {
+  if (onName) renameInline(id);
+  else setFocus(S.focus === id ? null : id);
+}
 svg.addEventListener('dblclick', (e) => {
-  if (e.target.closest('[data-node],[data-rel]')) return;
+  if (e.target.closest('[data-node],[data-rel],[data-pkghead],[data-pkgbox]')) return;
+  if (S.focus) return setFocus(null);
   const [x, y] = toWorld(e);
-  addClass('class', x, y);
+  newClass('class', x, y);
 });
 
 svg.addEventListener('wheel', (e) => {
   e.preventDefault();
   const r = svg.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
-  const k = Math.min(3, Math.max(0.2, S.view.k * Math.exp(-e.deltaY * 0.0015)));
+  const k = Math.min(3, Math.max(0.15, S.view.k * Math.exp(-e.deltaY * 0.0015)));
   S.view.tx = mx - ((mx - S.view.tx) * k) / S.view.k;
   S.view.ty = my - ((my - S.view.ty) * k) / S.view.k;
   S.view.k = k;
@@ -472,106 +1077,230 @@ svg.addEventListener('wheel', (e) => {
 let layoutTimer;
 function saveLayout() {
   clearTimeout(layoutTimer);
-  layoutTimer = setTimeout(() => fetch('/layout', { method: 'PUT', body: JSON.stringify(S.layout) }).catch(() => setStatus('could not save layout')), 300);
+  const ids = new Set(S.D.classes.map((c) => c.id));
+  const layout = Object.fromEntries(Object.entries(S.layout).filter(([id]) => ids.has(id)));
+  layoutTimer = setTimeout(() => fetch('/layout', { method: 'PUT', body: JSON.stringify(layout) }).catch(() => setStatus('could not save layout')), 300);
 }
 
-function addClass(kind, x, y) {
-  const id = prompt(`New ${kind} name`)?.trim();
-  if (!id) return;
-  if (x == null) { const r = svg.getBoundingClientRect(); [x, y] = [(r.width / 2 - S.view.tx) / S.view.k, (r.height / 3 - S.view.ty) / S.view.k]; }
-  S.layout[id] = { x: Math.round(x), y: Math.round(y) };
-  queueOp({ op: 'addClass', id, kind, x: Math.round(x), y: Math.round(y) });
-  select({ id });
-}
-
-// relation-type picker after a link drag
-let picker = null;
-function closePicker() { picker?.remove(); picker = null; }
-function openPicker(from, to, cx, cy) {
-  const kf = S.D.classes.find((c) => c.id === from).kind, kt = S.D.classes.find((c) => c.id === to).kind;
-  const suggested = kt === 'interface' && kf !== 'interface' ? 'implements' : kf === kt || (kt === 'abstract' && kf === 'class') ? 'extends' : 'association';
+// ---------- menus ----------
+let menu = null;
+function closeMenus() { menu?.remove(); menu = null; }
+function popup(x, y, ...kids) {
+  closeMenus();
   const wrap = $('canvasWrap').getBoundingClientRect();
-  picker = h('div', { className: 'picker' },
-    h('div', { className: 'muted' }, `${from} → ${to}`),
-    ...RELATIONS.map((t) => h('button', { className: t === suggested ? 'suggested' : '', onclick: () => { closePicker(); queueOp({ op: 'addRelation', from, to, type: t }); } }, `${VERB[t]}`)));
-  picker.style.left = `${Math.min(cx - wrap.left, wrap.width - 200)}px`;
-  picker.style.top = `${Math.min(cy - wrap.top, wrap.height - 260)}px`;
-  $('canvasWrap').append(picker);
+  menu = h('div', { className: 'picker' }, ...kids);
+  menu.style.left = `${Math.min(x - wrap.left, wrap.width - 230)}px`;
+  menu.style.top = `${Math.min(y - wrap.top, wrap.height - 280)}px`;
+  $('canvasWrap').append(menu);
 }
 
-document.addEventListener('keydown', (e) => {
-  if (e.target.closest('input,textarea,select')) return;
-  if (e.key === 'Escape') { closePicker(); select(null); }
-  if ((e.key === 'Delete' || e.key === 'Backspace') && S.sel) {
-    if (S.sel.id) queueOp({ op: 'removeClass', id: S.sel.id });
-    else { const r = S.D.relations.find((x) => relKey(x) === S.sel.rel); if (r) queueOp({ op: 'removeRelation', ...r }); }
-    select(null);
+function openPicker(from, to, cx, cy) {
+  const kf = cls(from).kind, kt = cls(to).kind;
+  const suggested = kt === 'interface' && kf !== 'interface' ? 'implements' : kf === kt || (kt === 'abstract' && kf === 'class') ? 'extends' : 'association';
+  popup(cx, cy, h('div', { className: 'muted' }, `${from} → ${to}`),
+    ...RELATIONS.map((t) => h('button', { className: t === suggested ? 'suggested' : '', title: MEANING[t], onclick: () => { closeMenus(); queueOp({ op: 'addRelation', from, to, type: t }); } }, VERB[t])));
+}
+
+// ---------- export ----------
+function download(blob, ext) {
+  const a = h('a', { href: URL.createObjectURL(blob), download: `${S.name}.${ext}` });
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function inlineClone(node) {
+  const c = node.cloneNode(false);
+  if (node.nodeType === 1) {
+    const cs = getComputedStyle(node);
+    c.setAttribute('style', ['fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'opacity', 'font-family', 'font-size', 'font-weight', 'font-style', 'paint-order', 'stroke-linejoin']
+      .map((p) => `${p}:${cs.getPropertyValue(p)}`).join(';'));
+    c.removeAttribute('class');
   }
+  for (const ch of node.childNodes) c.append(inlineClone(ch));
+  return c;
+}
+function svgText() {
+  S.exporting = true;
+  render();
+  const bb = world.getBBox(), pad = 24;
+  const out = el('svg', { xmlns: NS, width: Math.ceil(bb.width + 2 * pad), height: Math.ceil(bb.height + 2 * pad), viewBox: `${bb.x - pad} ${bb.y - pad} ${bb.width + 2 * pad} ${bb.height + 2 * pad}` },
+    el('rect', { x: bb.x - pad, y: bb.y - pad, width: bb.width + 2 * pad, height: bb.height + 2 * pad, fill: getComputedStyle(document.body).backgroundColor }),
+    inlineClone(svg.querySelector('defs')));
+  const g = inlineClone(world);
+  g.removeAttribute('transform');
+  out.append(g);
+  S.exporting = false;
+  render();
+  return [new XMLSerializer().serializeToString(out), out.getAttribute('width'), out.getAttribute('height')];
+}
+function exportPng() {
+  const [text, w, hgt] = svgText();
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    [c.width, c.height] = [w * 2, hgt * 2];
+    const ctx = c.getContext('2d');
+    ctx.scale(2, 2);
+    ctx.drawImage(img, 0, 0);
+    c.toBlob((b) => download(b, 'png'));
+  };
+  img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(text)}`;
+}
+$('exportBtn').onclick = (e) => {
+  e.stopPropagation();
+  const r = e.currentTarget.getBoundingClientRect();
+  popup(r.left, r.bottom + 4,
+    h('button', { onclick: () => { closeMenus(); $('mmdText').value = toMermaid({ ...S.D, layout: undefined }); $('mmdDlg').showModal(); } }, 'Mermaid (for GitHub / Markdown)'),
+    h('button', { onclick: () => { closeMenus(); download(new Blob([svgText()[0]], { type: 'image/svg+xml' }), 'svg'); } }, 'SVG image'),
+    h('button', { onclick: () => { closeMenus(); exportPng(); } }, 'PNG image'));
+};
+$('mmdCopy').onclick = async () => {
+  try { await navigator.clipboard.writeText($('mmdText').value); setStatus('Mermaid copied to the clipboard'); }
+  catch { $('mmdText').select(); document.execCommand('copy'); }
+  $('mmdDlg').close();
+};
+$('mmdClose').onclick = () => $('mmdDlg').close();
+$('keysClose').onclick = () => $('keysDlg').close();
+document.addEventListener('pointerdown', (e) => { if (menu && !menu.contains(e.target) && e.target !== $('exportBtn')) closeMenus(); });
+
+// ---------- keyboard ----------
+document.addEventListener('keydown', (e) => {
+  const typing = e.target.closest('input,textarea,select');
+  const mod = e.ctrlKey || e.metaKey, key = e.key.toLowerCase();
+  if (mod && key === 'enter' && e.target.id === 'message') { e.preventDefault(); if (!$('send').disabled) sendFeedback(false); return; }
+  if (mod && (key === 'z' || key === 'y')) {
+    if (typing) return;
+    e.preventDefault();
+    key === 'y' || e.shiftKey ? redo() : undo();
+    return;
+  }
+  if (typing) {
+    if (e.key === 'Escape' && e.target.id === 'search') { e.target.value = ''; S.query = ''; e.target.blur(); render(); }
+    return;
+  }
+  if (mod || e.altKey || document.querySelector('dialog[open]')) return;
+  const act = {
+    escape: () => { closeMenus(); S.focus = null; S.query = ''; $('search').value = ''; select(null); renderFocusChip(); },
+    delete: deleteSelection, backspace: deleteSelection,
+    n: () => newClass('class'), i: () => newClass('interface'), f: fit,
+    '/': () => $('search').focus(),
+    '?': () => $('keysDlg').showModal(),
+  }[key];
+  if (act) { e.preventDefault(); act(); }
 });
 
-$('addClass').onclick = () => addClass('class');
-$('addIface').onclick = () => addClass('interface');
+$('search').addEventListener('input', (e) => { S.query = e.target.value; render(); });
+$('search').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  const q = S.query.trim().toLowerCase();
+  const c = q && S.D.classes.find((x) => [x.id, x.package || '', ...(x.attributes || []), ...(x.methods || [])].some((s) => s.toLowerCase().includes(q)));
+  if (c) { select({ id: c.id }); panTo(c.id); }
+});
+
+$('addClass').onclick = () => newClass('class');
+$('addIface').onclick = () => newClass('interface');
+$('undo').onclick = undo;
+$('redo').onclick = redo;
 $('fit').onclick = fit;
+$('tidy').onclick = () => {
+  pushUndo({ kind: 'layout', before: structuredClone(S.layout) });
+  layered(S.D.classes);
+  saveLayout();
+  fit();
+  renderLists();
+  setStatus('Tidied up. Ctrl+Z to undo.');
+};
+$('legendBtn').onclick = () => { store.set('legend', $('legend').hidden); renderLegend(); };
 $('message').oninput = renderLists;
 $('clear').onclick = () => { S.ops = []; S.comments = []; update(); };
-$('send').onclick = async () => {
-  const draft = { ...S.D, layout: S.layout };
+$('send').onclick = () => sendFeedback(false);
+$('approve').onclick = () => sendFeedback(true);
+
+async function sendFeedback(approved) {
+  const ids = new Set(S.D.classes.map((c) => c.id));
   const payload = {
+    approved,
     summary: S.ops.map(describe),
     ops: S.ops,
     comments: S.comments.map((c) => ({ target: c.target, text: c.text })),
     message: $('message').value.trim(),
-    model: draft,
+    model: { ...S.D, layout: Object.fromEntries(Object.entries(S.layout).filter(([id]) => ids.has(id))) },
     violations: S.violations,
   };
   const res = await fetch('/feedback', { method: 'POST', body: JSON.stringify(payload) }).catch(() => null);
-  if (!res?.ok) return setStatus('send failed: is the archviz server running?');
+  if (!res?.ok) return setStatus('Send failed: is the archviz server running?');
   S.sentOps.push(...S.ops); S.sentComments.push(...S.comments);
   S.ops = []; S.comments = []; $('message').value = '';
-  setStatus('Sent. Waiting for the agent to update the diagram…', true);
+  S.changes = null;
+  S.undo = S.undo.filter((u) => u.kind === 'layout'); S.redo = [];
+  setStatus(approved ? 'Approved. The agent can implement it now.' : 'Sent. Waiting for the agent to update the diagram…', true);
   update();
-};
+}
 
 function fit() {
-  const ids = S.D.classes.map((c) => c.id);
-  if (!ids.length) return;
-  const bs = S.D.classes.map((c) => ({ ...S.layout[c.id], ...size(c) }));
-  const x0 = Math.min(...bs.map((b) => b.x)), y0 = Math.min(...bs.map((b) => b.y));
-  const x1 = Math.max(...bs.map((b) => b.x + b.w)), y1 = Math.max(...bs.map((b) => b.y + b.h));
+  const cs = [...S.D.classes, ...(S.changes?.removed || []).filter((c) => S.layout[c.id])];
+  if (!cs.length) return;
+  const bs = cs.map(box);
+  const x0 = Math.min(...bs.map((b) => b.x)) - 20, y0 = Math.min(...bs.map((b) => b.y)) - 40;
+  const x1 = Math.max(...bs.map((b) => b.x + b.w)) + 20, y1 = Math.max(...bs.map((b) => b.y + b.h)) + 20;
   const r = svg.getBoundingClientRect();
-  const k = Math.min(1.4, (r.width - 80) / (x1 - x0), (r.height - 80) / (y1 - y0));
-  S.view = { k, tx: (r.width - (x1 - x0) * k) / 2 - x0 * k, ty: (r.height - (y1 - y0) * k) / 2 - y0 * k };
+  const top = 56; // room for the toolbar
+  const k = Math.min(1.4, (r.width - 60) / (x1 - x0), (r.height - top - 50) / (y1 - y0));
+  S.view = { k, tx: (r.width - (x1 - x0) * k) / 2 - x0 * k, ty: top + (r.height - top - (y1 - y0) * k) / 2 - y0 * k };
   render();
 }
 
 // ---------- server sync ----------
 async function load(fromAgent) {
-  const { name, model } = await (await fetch('/model')).json();
+  const { name, model, root, editor } = await (await fetch('/model')).json();
   model.relations ||= [];
   if (fromAgent && S.base) {
-    const old = new Map(S.base.classes.map((c) => [c.id, JSON.stringify(c)]));
-    const oldRels = new Set(S.base.relations.map(relKey));
-    S.flash = new Set(model.classes.filter((c) => old.get(c.id) !== JSON.stringify(c)).map((c) => c.id));
-    for (const r of model.relations) if (!oldRels.has(relKey(r))) { S.flash.add(r.from); S.flash.add(r.to); }
-    setTimeout(() => { S.flash.clear(); render(); }, 3800);
-    S.ops = []; S.comments = []; S.sentOps = []; S.sentComments = [];
+    // keep unsent edits (re-applied on the new model); what was sent is now the agent's business
+    const baseline = S.sentOps.reduce((m, op) => { try { return applyOp(m, op); } catch { return m; } }, S.base);
+    S.changes = diff(baseline, model);
+    S.sentOps = []; S.sentComments = [];
+    S.undo = S.undo.filter((u) => u.kind === 'layout'); S.redo = [];
     setStatus(`Agent updated the diagram at ${new Date().toLocaleTimeString()}`, true);
   }
-  S.name = name; S.base = model;
+  if (!S.base) S.collapsed = new Set(store.get(`collapsed:${name}`, []));
+  Object.assign(S, { name, root, editor, base: model });
   S.layout = { ...S.layout, ...(model.layout || {}) };
   $('title').textContent = name;
   document.title = `${name} · archviz`;
   $('lang').textContent = model.language || 'language-agnostic';
   if (S.sel?.id && !model.classes.some((c) => c.id === S.sel.id)) S.sel = null;
+  if (S.focus && !model.classes.some((c) => c.id === S.focus)) S.focus = null;
   update();
+  if (fromAgent && S.changes) {
+    document.querySelector('aside').scrollTo({ top: 0, behavior: 'smooth' });
+    // make sure the user sees what the agent added
+    const r = svg.getBoundingClientRect();
+    const offscreen = [...S.changes.added].some((id) => {
+      const b = box(cls(id));
+      return sx(b.x) < 0 || sy(b.y) < 50 || sx(b.x + b.w) > r.width || sy(b.y + b.h) > r.height;
+    });
+    if (offscreen) fit();
+  }
+}
+
+async function loadReplies(fresh) {
+  const rs = await fetch('/replies').then((r) => r.json()).catch(() => []);
+  if (fresh && rs.length > S.replies.length) {
+    S.unread = true;
+    setStatus('The agent replied', true);
+    document.querySelector('aside').scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  S.replies = rs;
+  renderAgent();
 }
 
 await load(false);
+await loadReplies(false);
+renderLegend();
 fit();
 const es = new EventSource('/events');
 es.onopen = () => { if (!S.sentOps.length && !S.sentComments.length) setStatus('connected'); };
-es.onmessage = (e) => { if (e.data === 'reload') load(true); };
-es.onerror = () => setStatus('disconnected from archviz server (retrying)…');
+es.onmessage = (e) => { if (e.data === 'reload') load(true); if (e.data === 'replies') loadReplies(true); };
+es.onerror = () => setStatus('Disconnected from the archviz server (retrying)…');
 </script>
 </body>
 </html>

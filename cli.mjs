@@ -1,17 +1,19 @@
 #!/usr/bin/env node
-// archviz: open | poll | check | serve. Zero deps.
+// archviz: check | open | poll | reply | export | serve. Zero deps.
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { check } from './rules.mjs';
+import { check, toMermaid } from './rules.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = `usage:
   archviz check <model.json>              print best-practice violations (exit 1 on errors)
   archviz open  <model.json>              start the editor (if needed) and open the browser
-  archviz poll  <model.json> [--timeout s] wait for the user to press Send, print feedback JSON
+  archviz poll  <model.json> [--timeout s] wait for the user to press Send/Approve, print feedback JSON
+  archviz reply <model.json> <text | ->   show a message to the user in the editor (- reads stdin)
+  archviz export <model.json>             print the model as a Mermaid classDiagram
   archviz serve <model.json>              run the editor server in the foreground`;
 
 const [cmd, file, ...rest] = process.argv.slice(2);
@@ -20,15 +22,23 @@ const modelPath = path.resolve(file);
 const base = modelPath.replace(/\.json$/, '');
 const serverInfo = `${base}.server.json`;
 const feedbackPath = `${base}.feedback.json`;
+const replyPath = `${base}.reply.json`;
 
 const readModel = () => JSON.parse(fs.readFileSync(modelPath, 'utf8'));
 const semantic = (m) => JSON.stringify({ ...m, layout: undefined });
+const readReplies = () => (fs.existsSync(replyPath) ? JSON.parse(fs.readFileSync(replyPath, 'utf8')) : []);
 
 if (cmd === 'check') {
   const v = check(readModel());
   for (const x of v) console.log(`${x.severity.padEnd(5)} ${x.rule.padEnd(24)} ${x.message}`);
   if (!v.length) console.log('ok: no violations');
   process.exit(v.some((x) => x.severity === 'error') ? 1 : 0);
+} else if (cmd === 'reply') {
+  const text = (rest.join(' ') === '-' ? fs.readFileSync(0, 'utf8') : rest.join(' ')).trim();
+  if (!text) { console.error(USAGE); process.exit(2); }
+  fs.writeFileSync(replyPath, JSON.stringify([...readReplies(), { text, at: new Date().toISOString() }], null, 2));
+} else if (cmd === 'export') {
+  process.stdout.write(toMermaid(readModel()));
 } else if (cmd === 'serve') {
   serve();
 } else if (cmd === 'open') {
@@ -115,6 +125,11 @@ function serve() {
     last = s;
     for (const res of clients) res.write('data: reload\n\n');
   });
+  fs.watchFile(replyPath, { interval: 300 }, () => { for (const res of clients) res.write('data: replies\n\n'); });
+  // Template for "Open in editor" links; override with ARCHVIZ_EDITOR_URL, e.g. cursor://file{path}:{line}
+  const editor = process.env.ARCHVIZ_EDITOR_URL
+    || (process.env.WSL_DISTRO_NAME ? `vscode://vscode-remote/wsl+${process.env.WSL_DISTRO_NAME}{path}:{line}` : 'vscode://file{path}:{line}');
+  const root = process.cwd().replaceAll('\\', '/');
 
   const body = (req) => new Promise((resolve, reject) => {
     let d = '';
@@ -128,7 +143,8 @@ function serve() {
       const route = `${req.method} ${req.url.split('?')[0]}`;
       if (route === 'GET /') return send(res, 200, 'text/html', fs.readFileSync(path.join(HERE, 'ui.html')));
       if (route === 'GET /rules.mjs') return send(res, 200, 'text/javascript', fs.readFileSync(path.join(HERE, 'rules.mjs')));
-      if (route === 'GET /model') return send(res, 200, 'application/json', JSON.stringify({ name: path.basename(base), model: readModel() }));
+      if (route === 'GET /model') return send(res, 200, 'application/json', JSON.stringify({ name: path.basename(base), model: readModel(), root, editor }));
+      if (route === 'GET /replies') return send(res, 200, 'application/json', JSON.stringify(readReplies()));
       if (route === 'PUT /layout') {
         const layout = await body(req);
         fs.writeFileSync(modelPath, JSON.stringify({ ...readModel(), layout }, null, 2) + '\n');

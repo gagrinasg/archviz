@@ -1,6 +1,6 @@
 {
   "name": "@gagrinasg/archviz",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Interactive class-architecture review loop for AI agents",
   "type": "module",
   "bin": { "archviz": "cli.mjs" },

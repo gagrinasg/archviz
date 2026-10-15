@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { check, applyOp } from './rules.mjs';
+import { check, applyOp, toMermaid } from './rules.mjs';
 
 const C = (id, kind = 'class', methods = [], attributes = []) => ({ id, kind, methods, attributes });
 const R = (from, type, to) => ({ from, to, type });
@@ -71,4 +71,47 @@ test('applyOp: add, rename, setKind, relations, remove', () => {
   m = applyOp(m, { op: 'removeClass', id: 'Base' });
   assert.deepEqual(m.relations, []);
   assert.throws(() => applyOp(m, { op: 'addClass', id: 'B' }));
+});
+
+test('applyOp: package and relation props', () => {
+  let m = { classes: [C('A'), C('B')], relations: [R('A', 'composition', 'B')] };
+  m = applyOp(m, { op: 'setPackage', id: 'A', package: 'core' });
+  m = applyOp(m, { op: 'setRelationProps', from: 'A', to: 'B', type: 'composition', label: 'owns', fromMult: '1', toMult: '*' });
+  assert.equal(m.classes[0].package, 'core');
+  assert.deepEqual(m.relations[0], { from: 'A', to: 'B', type: 'composition', label: 'owns', fromMult: '1', toMult: '*' });
+  m = applyOp(m, { op: 'setPackage', id: 'A', package: '' });
+  m = applyOp(m, { op: 'setRelationProps', from: 'A', to: 'B', type: 'composition', label: '' });
+  assert.equal('package' in m.classes[0], false);
+  assert.deepEqual(m.relations[0], R('A', 'composition', 'B'));
+});
+
+test('toMermaid', () => {
+  const m = {
+    classes: [
+      { ...C('Shape', 'interface', ['+area(): number']), package: 'geo' },
+      C('Circle', 'class', ['+area(): number'], ['-r: number']),
+      C('Repo<T>', 'abstract', ['+get(id: string): T {abstract}']),
+      C('Empty'),
+    ],
+    relations: [R('Circle', 'implements', 'Shape'), { ...R('Circle', 'composition', 'Empty'), label: 'has', fromMult: '1', toMult: '*' }],
+  };
+  assert.equal(toMermaid(m), `classDiagram
+  class Circle {
+    -r: number
+    +area() number
+  }
+  class Repo~T~ {
+    <<abstract>>
+    +get(id: string) T*
+  }
+  class Empty
+  namespace geo {
+    class Shape {
+      <<interface>>
+      +area() number
+    }
+  }
+  Shape <|.. Circle
+  Circle "1" *-- "*" Empty : has
+`);
 });

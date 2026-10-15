@@ -157,8 +157,54 @@ export function applyOp(model, op) {
       r.type = op.newType;
       break;
     }
+    case 'setRelationProps': {
+      const r = m.relations.find((x) => relKey(x) === relKey(op));
+      if (!r) throw new Error('No such relation');
+      for (const f of ['label', 'fromMult', 'toMult']) { if (op[f]) r[f] = op[f]; else delete r[f]; }
+      break;
+    }
+    case 'setPackage':
+      if (op.package) cls(op.id).package = op.package;
+      else delete cls(op.id).package;
+      break;
     default:
       throw new Error(`Unknown op ${op.op}`);
   }
   return m;
+}
+
+const MERMAID_ARROW = { extends: '<|--', implements: '<|..', composition: '*--', aggregation: 'o--', association: '-->', dependency: '..>' };
+
+// Mermaid classDiagram text (renders natively in GitHub/GitLab Markdown).
+// ponytail: ids are squashed to Mermaid-safe names (generics <T> -> ~T~, other symbols -> _)
+export function toMermaid(model) {
+  const name = (id) => id.replace(/<([^<>]*)>/g, '~$1~').replace(/[^\w~]/g, '_');
+  const member = (s) => {
+    const abs = isAbstract(s);
+    const t = s.replace(/\s*\{abstract\}/, '').replace(/^([+\-#~]?\s*)abstract\s+/, '$1')
+      .replace(/\)\s*:\s*/, ') ').replace(/<([^<>]*)>/g, '~$1~');
+    return abs ? `${t}*` : t;
+  };
+  const lines = ['classDiagram'];
+  const emit = (c, ind) => {
+    const body = [...(c.kind !== 'class' ? [`<<${c.kind === 'enum' ? 'enumeration' : c.kind}>>`] : []), ...(c.attributes || []).map(member), ...(c.methods || []).map(member)];
+    if (!body.length) return lines.push(`${ind}class ${name(c.id)}`);
+    lines.push(`${ind}class ${name(c.id)} {`, ...body.map((b) => `${ind}  ${b}`), `${ind}}`);
+  };
+  const pkgs = new Map();
+  for (const c of model.classes) {
+    if (c.package) { if (!pkgs.has(c.package)) pkgs.set(c.package, []); pkgs.get(c.package).push(c); }
+    else emit(c, '  ');
+  }
+  for (const [p, cs] of pkgs) {
+    lines.push(`  namespace ${p.replace(/\W/g, '_')} {`);
+    cs.forEach((c) => emit(c, '    '));
+    lines.push('  }');
+  }
+  for (const r of model.relations || []) {
+    const isa = r.type === 'extends' || r.type === 'implements';
+    const [a, b, ma, mb] = isa ? [r.to, r.from, r.toMult, r.fromMult] : [r.from, r.to, r.fromMult, r.toMult];
+    lines.push(`  ${name(a)}${ma ? ` "${ma}"` : ''} ${MERMAID_ARROW[r.type]}${mb ? ` "${mb}"` : ''} ${name(b)}${r.label ? ` : ${r.label}` : ''}`);
+  }
+  return lines.join('\n') + '\n';
 }
